@@ -38,6 +38,12 @@
     .cat-list{margin-left:4px}
     .cat-row{display:flex;align-items:center;gap:8px;margin:4px 0}
     .cat-name{flex:1}
+
+    /* Swatch a rayas para la Biosfera en la leyenda (visual) */
+    .swatch-bios { 
+      background: repeating-linear-gradient(45deg, #800020, #800020 4px, transparent 4px, transparent 8px);
+      border-color:#800020 !important;
+    }
   </style>
 </head>
 <body>
@@ -49,6 +55,8 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+  <!-- Plugin para rellenos a rayas (opcional). Si no carga, usaremos relleno liso. -->
+  <script src="https://unpkg.com/leaflet.pattern/leaflet.pattern.js"></script>
 
   <script>
     // --- Centro/zoom iniciales ---
@@ -184,17 +192,15 @@
     enclavesLayer.addTo(map); // activa desde el inicio
 
     // =========================
-    // CAPA BIC TENERIFE (POLÍGONOS) con categorías y opacidad (50% por defecto)
+    // CAPA BIC TENERIFE (POLÍGONOS) con categorías y opacidad (50%)
     // =========================
     const bicPaneName = 'bic-pane';
     map.createPane(bicPaneName);
-    map.getPane(bicPaneName).style.zIndex = 450; // Municipios(300) < BIC(450) < ENP(500) < Enclaves(650)
+    map.getPane(bicPaneName).style.zIndex = 450; // Municipios(300) < BIC(450) < ENP(500) < Biosfera(525) < Enclaves(650)
 
-    // Normalizar texto (mayúsculas y sin acentos)
     const norm = s => (s || '').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-    // Colores por categoría (BIC)
     const BIC_COLORS = {
       'CONJUNTO HISTORICO':   { fill:[  6,169,230], stroke:[  0, 77,168] },
       'JARDIN HISTORICO':     { fill:[211,255,190], stroke:[ 38,115,  0] },
@@ -215,7 +221,7 @@
     };
     const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
 
-    let bicOpacity = 0.5; // 50% por defecto
+    let bicOpacity = 0.5;
 
     function styleBIC(feature) {
       const raw = feature?.properties?.bic_catego;
@@ -224,9 +230,9 @@
       return {
         color: rgb(c.stroke),
         weight: 2,
-        opacity: bicOpacity,     // borde
+        opacity: bicOpacity,
         fillColor: rgb(c.fill),
-        fillOpacity: bicOpacity  // relleno
+        fillOpacity: bicOpacity
       };
     }
 
@@ -246,16 +252,15 @@
       .then(geo => { bicLayer.addData(geo); enclavesLayer.bringToFront(); })
       .catch(err => console.warn('No se pudo cargar BIC:', err));
 
-    bicLayer.addTo(map); // activa desde el inicio
+    bicLayer.addTo(map);
 
     // =========================
-    // CAPA ENP TENERIFE (POLÍGONOS) con categorías y opacidad (50% por defecto)
+    // CAPA ENP TENERIFE (POLÍGONOS) con categorías y opacidad (50%)
     // =========================
     const enpPaneName = 'enp-pane';
     map.createPane(enpPaneName);
-    map.getPane(enpPaneName).style.zIndex = 500; // por encima de BIC, por debajo de Enclaves
+    map.getPane(enpPaneName).style.zIndex = 500; // por encima de BIC, por debajo de Biosfera/Enclaves
 
-    // Colores por categoría (ENP) – borde negro en todas
     const ENP_COLORS = {
       'MONUMENTO NATURAL':         { fill:[  0, 77,168] },
       'PAISAJE PROTEGIDO':         { fill:[166,166,255] },
@@ -277,7 +282,7 @@
       'SITIO DE INTERES CIENTIFICO':'Sitio de Interés Científico'
     };
 
-    let enpOpacity = 0.5; // 50% por defecto
+    let enpOpacity = 0.5;
 
     function styleENP(feature) {
       const raw = feature?.properties?.categoria;
@@ -302,13 +307,70 @@
       }
     });
 
-    // ⚠️ Asegúrate de subir ENP_Tenerife.geojson junto a este index.html o cambia la ruta:
     fetch('./ENP_Tenerife.geojson')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(geo => { enpLayer.addData(geo); enclavesLayer.bringToFront(); })
       .catch(err => console.warn('No se pudo cargar ENP:', err));
 
-    enpLayer.addTo(map); // activa desde el inicio
+    enpLayer.addTo(map);
+
+    // =========================
+    // CAPA BIOSFERA TENERIFE (POLÍGONOS) con rayas o liso y opacidad (50%)
+    // =========================
+    const biosPaneName = 'bios-pane';
+    map.createPane(biosPaneName);
+    map.getPane(biosPaneName).style.zIndex = 525; // por encima de ENP/BIC, debajo de Enclaves
+
+    let biosOpacity = 0.5;
+    const BIOS_COLOR = '#800020'; // granate
+
+    // Intentar usar patrón de rayas si el plugin está disponible
+    let biosStripes = null;
+    function makeBiosPattern(opacity) {
+      if (window.L && L.StripePattern) {
+        const pat = new L.StripePattern({
+          weight: 4,          // grosor de las rayas
+          spaceWeight: 4,     // separación
+          color: BIOS_COLOR,  // color de las rayas
+          opacity: opacity,   // opacidad de las rayas
+          angle: 45
+        });
+        pat.addTo(map);
+        return pat;
+      }
+      return null;
+    }
+    biosStripes = makeBiosPattern(biosOpacity);
+
+    function styleBios(feature) {
+      // Si hay patrón disponible, úsalo; si no, relleno liso granate
+      const base = {
+        color: BIOS_COLOR,     // borde del polígono (granate)
+        weight: 1.5,
+        opacity: biosOpacity
+      };
+      if (biosStripes) {
+        return { ...base, fillPattern: biosStripes };
+      } else {
+        return { ...base, fillColor: BIOS_COLOR, fillOpacity: biosOpacity };
+      }
+    }
+
+    const biosLayer = L.geoJSON(null, {
+      pane: biosPaneName,
+      style: styleBios,
+      onEachFeature: (feature, layer) => {
+        const name = feature?.properties?.MAB_NAME || 'Reserva de la Biosfera';
+        layer.bindPopup(`<b>${name}</b>`);
+      }
+    });
+
+    fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/BiosferaTen.geojson')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(geo => { biosLayer.addData(geo); enclavesLayer.bringToFront(); })
+      .catch(err => console.warn('No se pudo cargar Biosfera:', err));
+
+    biosLayer.addTo(map);
 
     // =========================
     // CONTROL DE BASES (arriba-derecha)
@@ -343,13 +405,18 @@
             </label>
             <label class="legend-item">
               <input type="checkbox" id="chk-bic" checked>
-              <span class="legend-swatch" style="background:#ccc;"></span>
+              <span class="legend-swatch" style="background:#ccc;border-color:#666;"></span>
               <span>BIC Tenerife (polígonos)</span>
             </label>
             <label class="legend-item">
               <input type="checkbox" id="chk-enp" checked>
               <span class="legend-swatch" style="background:#eee;"></span>
               <span>ENP Tenerife (polígonos)</span>
+            </label>
+            <label class="legend-item">
+              <input type="checkbox" id="chk-bios" checked>
+              <span class="legend-swatch swatch-bios"></span>
+              <span>Reserva de la Biosfera</span>
             </label>
 
             <div class="legend-slider" title="Opacidad límites municipios">
@@ -365,6 +432,11 @@
             <div class="legend-slider" title="Opacidad polígonos ENP">
               <label for="enp-opacity" style="min-width:120px">Opacidad ENP</label>
               <input id="enp-opacity" type="range" min="0" max="100" value="50" />
+            </div>
+
+            <div class="legend-slider" title="Opacidad Reserva Biosfera">
+              <label for="bios-opacity" style="min-width:120px">Opacidad Biosfera</label>
+              <input id="bios-opacity" type="range" min="0" max="100" value="50" />
             </div>
           </div>
 
@@ -387,6 +459,7 @@
         const chkMun  = div.querySelector('#chk-municipios');
         const chkBic  = div.querySelector('#chk-bic');
         const chkEnp  = div.querySelector('#chk-enp');
+        const chkBios = div.querySelector('#chk-bios');
 
         chkEncl.addEventListener('change', e=>{
           if(e.target.checked){ enclavesLayer.addTo(map); enclavesLayer.bringToFront(); }
@@ -403,6 +476,10 @@
         chkEnp.addEventListener('change', e=>{
           if(e.target.checked){ enpLayer.addTo(map); enclavesLayer.bringToFront(); }
           else{ map.removeLayer(enpLayer); }
+        });
+        chkBios.addEventListener('change', e=>{
+          if(e.target.checked){ biosLayer.addTo(map); enclavesLayer.bringToFront(); }
+          else{ map.removeLayer(biosLayer); }
         });
 
         // Sliders
@@ -423,6 +500,21 @@
         enpOp.addEventListener('input', e=>{
           enpOpacity = Number(e.target.value)/100;
           enpLayer.setStyle(styleENP);
+          enclavesLayer.bringToFront();
+        });
+
+        const biosOp = div.querySelector('#bios-opacity');
+        biosOp.addEventListener('input', e=>{
+          biosOpacity = Number(e.target.value)/100;
+
+          if (biosStripes && L.StripePattern) {
+            // recrear patrón con nueva opacidad
+            try { biosStripes.remove(); } catch(_e){}
+            biosStripes = makeBiosPattern(biosOpacity);
+            biosLayer.setStyle({ fillPattern: biosStripes, opacity: biosOpacity });
+          } else {
+            biosLayer.setStyle({ fillColor: BIOS_COLOR, fillOpacity: biosOpacity, opacity: biosOpacity });
+          }
           enclavesLayer.bringToFront();
         });
 
