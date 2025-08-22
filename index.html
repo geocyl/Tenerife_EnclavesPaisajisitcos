@@ -16,17 +16,28 @@
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
 
-    .opacity-control.leaflet-control {
-      background: #fff; padding: 8px 10px; border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.15);
-      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      margin-top: 8px;
-    }
-    .opacity-control label { display: block; margin-bottom: 6px; }
-    .opacity-control input[type="range"] { width: 160px; }
     .leaflet-bar a.emoji-btn {
       font-size: 18px; line-height: 26px; width: 26px; height: 26px; text-align: center;
     }
+
+    /* Leyenda / gestor de capas */
+    .legend-control.leaflet-control{
+      background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.15);
+      padding:10px; min-width: 240px; font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    }
+    .legend-control h4{margin:0 0 6px 0;font-size:14px}
+    .legend-section{margin-top:8px}
+    .legend-item{display:flex;align-items:center;gap:8px;margin:6px 0}
+    .legend-item input[type="checkbox"]{transform:translateY(1px)}
+    .legend-swatch{width:16px;height:12px;border:2px solid #888;box-sizing:border-box;border-radius:2px}
+    .legend-swatch.line{height:0;border-top-width:3px;border-bottom-width:0}
+    .legend-swatch.point{width:10px;height:10px;border-radius:50%}
+    .legend-slider{display:flex;align-items:center;gap:8px;margin:6px 0}
+    .legend-slider input[type="range"]{width:140px}
+    details summary{cursor:pointer;user-select:none;margin:6px 0;font-weight:600}
+    .cat-list{margin-left:4px}
+    .cat-row{display:flex;align-items:center;gap:8px;margin:4px 0}
+    .cat-name{flex:1}
   </style>
 </head>
 <body>
@@ -175,8 +186,6 @@
     // =========================
     // CAPA BIC TENERIFE (POLÍGONOS) con categorías y opacidad (50% por defecto)
     // =========================
-
-    // Pane propio para BIC por debajo de Enclaves pero por encima de Municipios
     const bicPaneName = 'bic-pane';
     map.createPane(bicPaneName);
     map.getPane(bicPaneName).style.zIndex = 450; // Municipios(300) < BIC(450) < Enclaves(650)
@@ -227,71 +236,123 @@
 
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/BIC_Tenerife.geojson')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(geo => { bicLayer.addData(geo); enclavesLayer.bringToFront(); }) // asegurar enclaves arriba tras cargar BIC
+      .then(geo => { bicLayer.addData(geo); enclavesLayer.bringToFront(); })
       .catch(err => console.warn('No se pudo cargar BIC:', err));
 
     bicLayer.addTo(map); // activa desde el inicio
 
     // =========================
-    // CONTROLES DE CAPAS
+    // CONTROLES: Bases (arriba-dcha) + Leyenda/Capas (abajo-dcha)
     // =========================
     const baseMaps = {
       'OSM': osm,
       'Satélite (Esri)': esriSat,
       'Gris (Carto Positron)': cartoLight
     };
-    const overlays = {
-      'Enclaves (puntos)': enclavesLayer,
-      'Municipios (límite)': municipiosLayer,
-      'BIC Tenerife (polígonos)': bicLayer
-    };
-
-    // Control SOLO bases (arriba-derecha)
     L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
 
-    // Control SOLO overlays (abajo-derecha)
-    L.control.layers(null, overlays, { position: 'bottomright', collapsed: false }).addTo(map);
-
-    // --- Control de Opacidad para Municipios (abajo-derecha) ---
-    const OpacityControlMunicipios = L.Control.extend({
+    // ---- Leyenda/Capas personalizada (incluye toggles + sliders + categorías BIC) ----
+    const LegendControl = L.Control.extend({
       options: { position: 'bottomright' },
       onAdd: function() {
-        const div = L.DomUtil.create('div', 'opacity-control leaflet-control');
+        const div = L.DomUtil.create('div', 'legend-control leaflet-control');
+
+        // Construir HTML
         div.innerHTML = `
-          <label for="muni-opacity">Opacidad límites</label>
-          <input id="muni-opacity" type="range" min="0" max="100" value="100" />
+          <h4>Capas</h4>
+          <div class="legend-section" id="layer-toggles">
+            <label class="legend-item">
+              <input type="checkbox" id="chk-enclaves" checked>
+              <span class="legend-swatch point" style="background:#4DA3FF;border-color:#143D6B;"></span>
+              <span>Enclaves (puntos)</span>
+            </label>
+            <label class="legend-item">
+              <input type="checkbox" id="chk-municipios" checked>
+              <span class="legend-swatch line" style="border-color:#00599C;"></span>
+              <span>Municipios (límite)</span>
+            </label>
+            <div class="legend-item">
+              <input type="checkbox" id="chk-bic" checked>
+              <span class="legend-swatch" style="background:#ccc;border-color:#666;"></span>
+              <span>BIC Tenerife (polígonos)</span>
+            </div>
+
+            <div class="legend-slider" title="Opacidad límites municipios">
+              <label for="muni-opacity" style="min-width:100px">Opacidad límites</label>
+              <input id="muni-opacity" type="range" min="0" max="100" value="100" />
+            </div>
+
+            <div class="legend-slider" title="Opacidad polígonos BIC">
+              <label for="bic-opacity" style="min-width:100px">Opacidad BIC</label>
+              <input id="bic-opacity" type="range" min="0" max="100" value="50" />
+            </div>
+          </div>
+
+          <div class="legend-section">
+            <details open>
+              <summary>Simbología BIC (por categoría)</summary>
+              <div class="cat-list" id="bic-cats"></div>
+            </details>
+          </div>
         `;
-        const input = div.querySelector('#muni-opacity');
+
+        // Evitar que arrastrar el slider mueva el mapa
         L.DomEvent.disableClickPropagation(div);
-        L.DomEvent.on(input, 'input', (e) => {
-          const v = Number(e.target.value) / 100;
+
+        // Toggling de capas
+        const chkEncl = div.querySelector('#chk-enclaves');
+        const chkMun  = div.querySelector('#chk-municipios');
+        const chkBic  = div.querySelector('#chk-bic');
+
+        chkEncl.checked = map.hasLayer(enclavesLayer);
+        chkMun.checked  = map.hasLayer(municipiosLayer);
+        chkBic.checked  = map.hasLayer(bicLayer);
+
+        chkEncl.addEventListener('change', e=>{
+          if(e.target.checked){ enclavesLayer.addTo(map); enclavesLayer.bringToFront(); }
+          else{ map.removeLayer(enclavesLayer); }
+        });
+        chkMun.addEventListener('change', e=>{
+          if(e.target.checked){ municipiosLayer.addTo(map); }
+          else{ map.removeLayer(municipiosLayer); }
+        });
+        chkBic.addEventListener('change', e=>{
+          if(e.target.checked){ bicLayer.addTo(map); enclavesLayer.bringToFront(); }
+          else{ map.removeLayer(bicLayer); }
+        });
+
+        // Sliders de opacidad
+        const muniOp = div.querySelector('#muni-opacity');
+        muniOp.addEventListener('input', e=>{
+          const v = Number(e.target.value)/100;
           municipiosLayer.setStyle({ opacity: v });
         });
-        return div;
-      }
-    });
-    map.addControl(new OpacityControlMunicipios());
 
-    // --- Control de Opacidad para BIC (50% por defecto) ---
-    const OpacityControlBIC = L.Control.extend({
-      options: { position: 'bottomright' },
-      onAdd: function() {
-        const div = L.DomUtil.create('div', 'opacity-control leaflet-control');
-        div.innerHTML = `
-          <label for="bic-opacity">Opacidad BIC</label>
-          <input id="bic-opacity" type="range" min="0" max="100" value="50" />
-        `;
-        const input = div.querySelector('#bic-opacity');
-        L.DomEvent.disableClickPropagation(div);
-        L.DomEvent.on(input, 'input', (e) => {
-          bicOpacity = Number(e.target.value) / 100; // 0..1
-          bicLayer.setStyle(styleBIC);               // reaplicar estilos con la nueva opacidad
-          enclavesLayer.bringToFront();              // mantener enclaves arriba tras cambios
+        const bicOp = div.querySelector('#bic-opacity');
+        bicOp.addEventListener('input', e=>{
+          bicOpacity = Number(e.target.value)/100;
+          bicLayer.setStyle(styleBIC);
+          enclavesLayer.bringToFront();
         });
+
+        // Rellenar tabla de categorías BIC
+        const catsDiv = div.querySelector('#bic-cats');
+        const entries = Object.entries(BIC_COLORS);
+        catsDiv.innerHTML = entries.map(([name, c])=>{
+          const fill = `rgb(${c.fill[0]},${c.fill[1]},${c.fill[2]})`;
+          const stroke = `rgb(${c.stroke[0]},${c.stroke[1]},${c.stroke[2]})`;
+          return `
+            <div class="cat-row">
+              <span class="legend-swatch" style="background:${fill};border-color:${stroke}"></span>
+              <span class="cat-name">${name.replace(/OLOGICO/g,'ológico').replace(/HISTORICO/g,'Histórico')}</span>
+            </div>
+          `;
+        }).join('');
+
         return div;
       }
     });
-    map.addControl(new OpacityControlBIC());
+    map.addControl(new LegendControl());
 
     // Escala
     L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
