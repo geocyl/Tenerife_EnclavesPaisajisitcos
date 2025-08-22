@@ -111,28 +111,21 @@
     municipiosLayer.addTo(map);
 
     // =========================
-    //  CAPA ENCLAVES (PUNTOS)
+    // CAPA ENCLAVES (PUNTOS)
     // =========================
     const enclavesStyle = {
       radius: 6,
       weight: 2,
-      color: '#143D6B',     // borde
-      fillColor: '#4DA3FF', // relleno
+      color: '#143D6B',
+      fillColor: '#4DA3FF',
       fillOpacity: 0.9
     };
 
     const enclavesLayer = L.geoJSON(null, {
       pointToLayer: (feature, latlng) => L.circleMarker(latlng, enclavesStyle),
       onEachFeature: (feature, layer) => {
-        // Intentar mostrar nombre/descripcion si existen
-        const p = feature && feature.properties ? feature.properties : {};
-        const titulo = p.name || p.Nombre || p.titulo || p.Titulo || 'Enclave';
-        const desc   = p.descripcion || p.Descripcion || p.desc || '';
-        const extra  = Object.entries(p)
-          .filter(([k]) => !['name','Nombre','titulo','Titulo','descripcion','Descripcion','desc'].includes(k))
-          .slice(0,5) // evitar popups gigantes
-          .map(([k,v]) => `<div><b>${k}:</b> ${v}</div>`).join('');
-        layer.bindPopup(`<b>${titulo}</b>${desc ? '<br>'+desc : ''}${extra ? '<hr>'+extra : ''}`);
+        const name = feature?.properties?.Name || 'Enclave';
+        layer.bindPopup(`<b>${name}</b>`);
       }
     });
 
