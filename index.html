@@ -149,12 +149,16 @@
     municipiosLayer.addTo(map); // activa desde el inicio
 
     // =========================
-    // CAPA ENCLAVES (PUNTOS)
+    // CAPA ENCLAVES (PUNTOS) — SIEMPRE POR ENCIMA
     // =========================
+    const enclavesPaneName = 'enclaves-pane';
+    map.createPane(enclavesPaneName);
+    map.getPane(enclavesPaneName).style.zIndex = 650; // > markerPane(600) y > overlayPane(400)
+
     const enclavesStyle = { radius: 6, weight: 2, color: '#143D6B', fillColor: '#4DA3FF', fillOpacity: 0.9 };
 
     const enclavesLayer = L.geoJSON(null, {
-      pointToLayer: (feature, latlng) => L.circleMarker(latlng, enclavesStyle),
+      pointToLayer: (feature, latlng) => L.circleMarker(latlng, { pane: enclavesPaneName, ...enclavesStyle }),
       onEachFeature: (feature, layer) => {
         const name = feature?.properties?.Name || 'Enclave';
         layer.bindPopup(`<b>${name}</b>`);
@@ -163,7 +167,7 @@
 
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/Puntos_Enclaves.json')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(geo => enclavesLayer.addData(geo))
+      .then(geo => { enclavesLayer.addData(geo); enclavesLayer.bringToFront(); })
       .catch(err => console.warn('No se pudo cargar enclaves:', err));
 
     enclavesLayer.addTo(map); // activa desde el inicio
@@ -172,11 +176,16 @@
     // CAPA BIC TENERIFE (POLÍGONOS) con categorías y opacidad (50% por defecto)
     // =========================
 
+    // Pane propio para BIC por debajo de Enclaves pero por encima de Municipios
+    const bicPaneName = 'bic-pane';
+    map.createPane(bicPaneName);
+    map.getPane(bicPaneName).style.zIndex = 450; // Municipios(300) < BIC(450) < Enclaves(650)
+
     // Normalizar texto (mayúsculas y sin acentos)
     const norm = s => (s || '').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-    // Colores por categoría (RGB) según tu lista
+    // Colores por categoría (RGB)
     const BIC_COLORS = {
       'CONJUNTO HISTORICO':   { fill:[  6,169,230], stroke:[  0, 77,168] },
       'JARDIN HISTORICO':     { fill:[211,255,190], stroke:[ 38,115,  0] },
@@ -192,11 +201,11 @@
     let bicOpacity = 0.5;
 
     function styleBIC(feature) {
-      // Campo correcto del GeoJSON: 'bic_catego'
-      const raw = feature?.properties?.bic_catego;
+      const raw = feature?.properties?.bic_catego;   // campo correcto
       const key = norm(raw);
       const c = BIC_COLORS[key] || { fill:[200,200,200], stroke:[120,120,120] };
       return {
+        pane: bicPaneName,
         color: rgb(c.stroke),
         weight: 2,
         opacity: bicOpacity,     // borde
@@ -206,17 +215,19 @@
     }
 
     const bicLayer = L.geoJSON(null, {
+      pane: bicPaneName,
       style: styleBIC,
       onEachFeature: (feature, layer) => {
         const nombre = feature?.properties?.bic_nombre || 'BIC';
         const cat    = feature?.properties?.bic_catego || '';
-        layer.bindPopup(`<b>${nombre}</b>${cat ? '<br>'+cat : ''}`);
+        const desc   = feature?.properties?.bic_descri || '';
+        layer.bindPopup(`<b>${nombre}</b>${cat ? '<br>'+cat : ''}${desc ? '<br>'+desc : ''}`);
       }
     });
 
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/BIC_Tenerife.geojson')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(geo => bicLayer.addData(geo))
+      .then(geo => { bicLayer.addData(geo); enclavesLayer.bringToFront(); }) // asegurar enclaves arriba tras cargar BIC
       .catch(err => console.warn('No se pudo cargar BIC:', err));
 
     bicLayer.addTo(map); // activa desde el inicio
@@ -275,6 +286,7 @@
         L.DomEvent.on(input, 'input', (e) => {
           bicOpacity = Number(e.target.value) / 100; // 0..1
           bicLayer.setStyle(styleBIC);               // reaplicar estilos con la nueva opacidad
+          enclavesLayer.bringToFront();              // mantener enclaves arriba tras cambios
         });
         return div;
       }
