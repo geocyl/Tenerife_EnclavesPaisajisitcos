@@ -20,7 +20,7 @@
       font-size: 18px; line-height: 26px; width: 26px; height: 26px; text-align: center;
     }
 
-    /* Leyenda / gestor de capas */
+    /* Panel leyenda / gestor de capas */
     .legend-control.leaflet-control{
       background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.15);
       padding:10px; min-width: 260px; font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
@@ -44,68 +44,20 @@
       background: repeating-linear-gradient(45deg, #800020, #800020 4px, transparent 4px, transparent 8px);
       border-color:#800020 !important;
     }
-  </style>
-</head>
-<body>
 
-  <div id="map"></div>
-
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
-  <!-- Plugin opcional para rellenos a rayas -->
-  <script src="https://unpkg.com/leaflet.pattern/leaflet.pattern.js"></script>
-
-  <script>
-    // --- Centro/zoom iniciales ---
-    const centerTenerife = [28.2916, -16.6291];<!doctype html> 
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Visor Tenerife • Leaflet</title>
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
-
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #map { height: 100%; width: 100%; }
-
-    .leaflet-bar a.emoji-btn {
-      font-size: 18px; line-height: 26px; width: 26px; height: 26px; text-align: center;
+    /* Desplegable del panel de capas */
+    .legend-control details { width: 100%; }
+    .legend-control summary {
+      cursor: pointer; user-select: none;
+      font-weight: 600; padding: 6px 8px; border-radius: 6px;
+      background: #f3f3f3; border: 1px solid #e0e0e0;
     }
-
-    /* Leyenda / gestor de capas */
-    .legend-control.leaflet-control{
-      background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.15);
-      padding:10px; min-width: 260px; font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    .legend-control summary::-webkit-details-marker { display: none; }
+    .legend-control summary::after {
+      content: '▾'; float: right; transform: translateY(1px);
     }
-    .legend-control h4{margin:0 0 6px 0;font-size:14px}
-    .legend-section{margin-top:8px}
-    .legend-item{display:flex;align-items:center;gap:8px;margin:6px 0}
-    .legend-item input[type="checkbox"]{transform:translateY(1px)}
-    .legend-swatch{width:16px;height:12px;border:2px solid #000;box-sizing:border-box;border-radius:2px}
-    .legend-swatch.line{height:0;border-top-width:3px;border-bottom-width:0;border-color:#00599C}
-    .legend-swatch.point{width:10px;height:10px;border-radius:50%;border-color:#143D6B;background:#4DA3FF}
-    .legend-slider{display:flex;align-items:center;gap:8px;margin:6px 0}
-    .legend-slider input[type="range"]{width:150px}
-    details summary{cursor:pointer;user-select:none;margin:6px 0;font-weight:600}
-    .cat-list{margin-left:4px}
-    .cat-row{display:flex;align-items:center;gap:8px;margin:4px 0}
-    .cat-name{flex:1}
-
-    /* Swatch a rayas para la Biosfera (visual en leyenda) */
-    .swatch-bios { 
-      background: repeating-linear-gradient(45deg, #800020, #800020 4px, transparent 4px, transparent 8px);
-      border-color:#800020 !important;
-    }
+    .legend-control details[open] summary::after { content: '▴'; }
+    .legend-body { margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -136,7 +88,7 @@
       maxBoundsViscosity: 0.5
     });
 
-    // --- Botón HOME ---
+    // --- Botón HOME (volver a vista inicial) ---
     const HomeControl = L.Control.extend({
       options: { position: 'topleft' },
       onAdd: function() {
@@ -200,10 +152,10 @@
     const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>'
     });
-    osm.addTo(map);
+    osm.addTo(map); // base por defecto
 
     // =========================
-    //  PANE Z-INDEX
+    //  PANES (orden de dibujo)
     // =========================
     const municipiosPaneName = 'municipios-pane'; map.createPane(municipiosPaneName); map.getPane(municipiosPaneName).style.zIndex = 300;
     const bicPaneName = 'bic-pane';               map.createPane(bicPaneName);         map.getPane(bicPaneName).style.zIndex = 450;
@@ -241,10 +193,9 @@
     enclavesLayer.addTo(map);
 
     // =========================
-    //  BIC (POLÍGONOS) con categorías + opacidad
+    //  BIC (POLÍGONOS) — categorías + opacidad (50%)
     // =========================
-    const norm = s => (s || '').toString().trim().toUpperCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const norm = s => (s || '').toString().trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const BIC_COLORS = {
       'CONJUNTO HISTORICO':   { fill:[  6,169,230], stroke:[  0, 77,168] },
       'JARDIN HISTORICO':     { fill:[211,255,190], stroke:[ 38,115,  0] },
@@ -255,8 +206,12 @@
       'ZONA PALEONTOLOGICA':  { fill:[158,215,194], stroke:[ 68,137,112] }
     };
     const BIC_LABELS = {
-      'CONJUNTO HISTORICO':'Conjunto Histórico','JARDIN HISTORICO':'Jardín Histórico','MONUMENTO':'Monumento',
-      'SITIO ETNOLOGICO':'Sitio Etnológico','SITIO HISTORICO':'Sitio Histórico','ZONA ARQUEOLOGICA':'Zona Arqueológica',
+      'CONJUNTO HISTORICO':'Conjunto Histórico',
+      'JARDIN HISTORICO':'Jardín Histórico',
+      'MONUMENTO':'Monumento',
+      'SITIO ETNOLOGICO':'Sitio Etnológico',
+      'SITIO HISTORICO':'Sitio Histórico',
+      'ZONA ARQUEOLOGICA':'Zona Arqueológica',
       'ZONA PALEONTOLOGICA':'Zona Paleontológica'
     };
     const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
@@ -283,7 +238,7 @@
     bicLayer.addTo(map);
 
     // =========================
-    //  ENP (POLÍGONOS) con categorías + opacidad
+    //  ENP (POLÍGONOS) — categorías + opacidad (50%)
     // =========================
     const ENP_COLORS = {
       'MONUMENTO NATURAL':         { fill:[  0, 77,168] },
@@ -296,9 +251,14 @@
       'SITIO DE INTERES CIENTIFICO': { fill:[233,255,190] }
     };
     const ENP_LABELS = {
-      'MONUMENTO NATURAL':'Monumento Natural','PAISAJE PROTEGIDO':'Paisaje Protegido','PARQUE NACIONAL':'Parque Nacional',
-      'PARQUE NATURAL':'Parque Natural','PARQUE RURAL':'Parque Rural','RESERVA NATURAL ESPECIAL':'Reserva Natural Especial',
-      'RESERVA NATURAL INTEGRAL':'Reserva Natural Integral','SITIO DE INTERES CIENTIFICO':'Sitio de Interés Científico'
+      'MONUMENTO NATURAL':'Monumento Natural',
+      'PAISAJE PROTEGIDO':'Paisaje Protegido',
+      'PARQUE NACIONAL':'Parque Nacional',
+      'PARQUE NATURAL':'Parque Natural',
+      'PARQUE RURAL':'Parque Rural',
+      'RESERVA NATURAL ESPECIAL':'Reserva Natural Especial',
+      'RESERVA NATURAL INTEGRAL':'Reserva Natural Integral',
+      'SITIO DE INTERES CIENTIFICO':'Sitio de Interés Científico'
     };
     let enpOpacity = 0.5;
     function styleENP(feature) {
@@ -315,6 +275,7 @@
         layer.bindPopup(`<b>${nombre}</b>${categoria ? '<br>'+categoria : ''}`);
       }
     });
+    // Ajusta la ruta si tu ENP está en otra ubicación:
     fetch('./ENP_Tenerife.geojson')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(geo => { enpLayer.addData(geo); enclavesLayer.bringToFront(); })
@@ -322,7 +283,7 @@
     enpLayer.addTo(map);
 
     // =========================
-    //  BIOSFERA (POLÍGONOS) rayas o liso + opacidad
+    //  BIOSFERA (POLÍGONOS) — rayas (si hay plugin) o liso + opacidad (50%)
     // =========================
     let biosOpacity = 0.5; const BIOS_COLOR = '#800020';
     let biosStripes = null;
@@ -386,7 +347,7 @@
     L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
 
     // =========================
-    // LEYENDA / GESTOR DE CAPAS (abajo-derecha)
+    // LEYENDA / GESTOR DE CAPAS (abajo-derecha) — DESPLEGABLE
     // =========================
     const LegendControl = L.Control.extend({
       options: { position: 'bottomright' },
@@ -394,74 +355,79 @@
         const div = L.DomUtil.create('div', 'legend-control leaflet-control');
 
         div.innerHTML = `
-          <h4>Capas</h4>
-          <div class="legend-section" id="layer-toggles">
-            <label class="legend-item">
-              <input type="checkbox" id="chk-enclaves" checked>
-              <span class="legend-swatch point"></span>
-              <span>Enclaves (puntos)</span>
-            </label>
-            <label class="legend-item">
-              <input type="checkbox" id="chk-municipios" checked>
-              <span class="legend-swatch line"></span>
-              <span>Municipios (límite)</span>
-            </label>
-            <label class="legend-item">
-              <input type="checkbox" id="chk-bic" checked>
-              <span class="legend-swatch" style="background:#ccc;border-color:#666;"></span>
-              <span>BIC Tenerife (polígonos)</span>
-            </label>
-            <label class="legend-item">
-              <input type="checkbox" id="chk-enp" checked>
-              <span class="legend-swatch" style="background:#eee;border-color:#000;"></span>
-              <span>ENP Tenerife (polígonos)</span>
-            </label>
-            <label class="legend-item">
-              <input type="checkbox" id="chk-bios" checked>
-              <span class="legend-swatch swatch-bios"></span>
-              <span>Reserva de la Biosfera</span>
-            </label>
-            <label class="legend-item">
-              <input type="checkbox" id="chk-litoralsp" checked>
-              <span class="legend-swatch line" style="border-color:${LITORAL_SP_COLOR};"></span>
-              <span>Límite SP (litoral)</span>
-            </label>
-            <label class="legend-item">
-              <input type="checkbox" id="chk-litoraldpmt" checked>
-              <span class="legend-swatch line" style="border-color:${LITORAL_DPMT_COLOR};"></span>
-              <span>Límite DPMT (litoral)</span>
-            </label>
+          <details id="legend-root">
+            <summary>Capas</summary>
+            <div class="legend-body">
+              <div class="legend-section" id="layer-toggles">
+                <label class="legend-item">
+                  <input type="checkbox" id="chk-enclaves" checked>
+                  <span class="legend-swatch point"></span>
+                  <span>Enclaves (puntos)</span>
+                </label>
+                <label class="legend-item">
+                  <input type="checkbox" id="chk-municipios" checked>
+                  <span class="legend-swatch line"></span>
+                  <span>Municipios (límite)</span>
+                </label>
+                <label class="legend-item">
+                  <input type="checkbox" id="chk-bic" checked>
+                  <span class="legend-swatch" style="background:#ccc;border-color:#666;"></span>
+                  <span>BIC Tenerife (polígonos)</span>
+                </label>
+                <label class="legend-item">
+                  <input type="checkbox" id="chk-enp" checked>
+                  <span class="legend-swatch" style="background:#eee;border-color:#000;"></span>
+                  <span>ENP Tenerife (polígonos)</span>
+                </label>
+                <label class="legend-item">
+                  <input type="checkbox" id="chk-bios" checked>
+                  <span class="legend-swatch swatch-bios"></span>
+                  <span>Reserva de la Biosfera</span>
+                </label>
+                <label class="legend-item">
+                  <input type="checkbox" id="chk-litoralsp" checked>
+                  <span class="legend-swatch line" style="border-color:${LITORAL_SP_COLOR};"></span>
+                  <span>Límite SP (litoral)</span>
+                </label>
+                <label class="legend-item">
+                  <input type="checkbox" id="chk-litoraldpmt" checked>
+                  <span class="legend-swatch line" style="border-color:${LITORAL_DPMT_COLOR};"></span>
+                  <span>Límite DPMT (litoral)</span>
+                </label>
 
-            <div class="legend-slider" title="Opacidad límites municipios">
-              <label for="muni-opacity" style="min-width:120px">Opacidad límites</label>
-              <input id="muni-opacity" type="range" min="0" max="100" value="100" />
-            </div>
-            <div class="legend-slider" title="Opacidad polígonos BIC">
-              <label for="bic-opacity" style="min-width:120px">Opacidad BIC</label>
-              <input id="bic-opacity" type="range" min="0" max="100" value="50" />
-            </div>
-            <div class="legend-slider" title="Opacidad polígonos ENP">
-              <label for="enp-opacity" style="min-width:120px">Opacidad ENP</label>
-              <input id="enp-opacity" type="range" min="0" max="100" value="50" />
-            </div>
-            <div class="legend-slider" title="Opacidad Reserva Biosfera">
-              <label for="bios-opacity" style="min-width:120px">Opacidad Biosfera</label>
-              <input id="bios-opacity" type="range" min="0" max="100" value="50" />
-            </div>
-          </div>
+                <div class="legend-slider" title="Opacidad límites municipios">
+                  <label for="muni-opacity" style="min-width:120px">Opacidad límites</label>
+                  <input id="muni-opacity" type="range" min="0" max="100" value="100" />
+                </div>
+                <div class="legend-slider" title="Opacidad polígonos BIC">
+                  <label for="bic-opacity" style="min-width:120px">Opacidad BIC</label>
+                  <input id="bic-opacity" type="range" min="0" max="100" value="50" />
+                </div>
+                <div class="legend-slider" title="Opacidad polígonos ENP">
+                  <label for="enp-opacity" style="min-width:120px">Opacidad ENP</label>
+                  <input id="enp-opacity" type="range" min="0" max="100" value="50" />
+                </div>
+                <div class="legend-slider" title="Opacidad Reserva Biosfera">
+                  <label for="bios-opacity" style="min-width:120px">Opacidad Biosfera</label>
+                  <input id="bios-opacity" type="range" min="0" max="100" value="50" />
+                </div>
+              </div>
 
-          <div class="legend-section">
-            <details open>
-              <summary>Simbología BIC (por categoría)</summary>
-              <div class="cat-list" id="bic-cats"></div>
-            </details>
-            <details open>
-              <summary>Simbología ENP (por categoría)</summary>
-              <div class="cat-list" id="enp-cats"></div>
-            </details>
-          </div>
+              <div class="legend-section">
+                <details open>
+                  <summary>Simbología BIC (por categoría)</summary>
+                  <div class="cat-list" id="bic-cats"></div>
+                </details>
+                <details open>
+                  <summary>Simbología ENP (por categoría)</summary>
+                  <div class="cat-list" id="enp-cats"></div>
+                </details>
+              </div>
+            </div>
+          </details>
         `;
 
+        // Evitar que el mapa se mueva al interactuar con el panel
         L.DomEvent.disableClickPropagation(div);
 
         // Checkboxes
@@ -531,12 +497,12 @@
           enclavesLayer.bringToFront();
         });
 
-        // Rellenar simbología BIC
+        // Simbología BIC
         const bicCatsDiv = div.querySelector('#bic-cats');
         bicCatsDiv.innerHTML = Object.entries(BIC_COLORS).map(([key, c])=>{
           const fill = `rgb(${c.fill[0]},${c.fill[1]},${c.fill[2]})`;
           const stroke = `rgb(${c.stroke[0]},${c.stroke[1]},${c.stroke[2]})`;
-          const label = ({"CONJUNTO HISTORICO":"Conjunto Histórico","JARDIN HISTORICO":"Jardín Histórico","MONUMENTO":"Monumento","SITIO ETNOLOGICO":"Sitio Etnológico","SITIO HISTORICO":"Sitio Histórico","ZONA ARQUEOLOGICA":"Zona Arqueológica","ZONA PALEONTOLOGICA":"Zona Paleontológica"})[key] || key;
+          const label = BIC_LABELS[key] || key;
           return `
             <div class="cat-row">
               <span class="legend-swatch" style="background:${fill};border-color:${stroke}"></span>
@@ -545,7 +511,7 @@
           `;
         }).join('');
 
-        // Rellenar simbología ENP (borde negro)
+        // Simbología ENP (borde negro)
         const enpCatsDiv = div.querySelector('#enp-cats');
         enpCatsDiv.innerHTML = Object.entries(ENP_COLORS).map(([key, c])=>{
           const fill = `rgb(${c.fill[0]},${c.fill[1]},${c.fill[2]})`;
