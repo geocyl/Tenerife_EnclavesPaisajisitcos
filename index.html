@@ -15,26 +15,23 @@
   <style>
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
-    .top-right {
-      position: absolute; top: 10px; right: 10px; z-index: 1000;
-      background: white; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      padding: 8px 10px; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; font-size: 14px;
-    }
 
     .opacity-control.leaflet-control {
       background: #fff; padding: 8px 10px; border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.15); font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       margin-top: 8px;
     }
     .opacity-control label { display: block; margin-bottom: 6px; }
     .opacity-control input[type="range"] { width: 160px; }
-    .leaflet-bar a.emoji-btn { font-size: 18px; line-height: 26px; width: 26px; height: 26px; text-align: center; }
+    .leaflet-bar a.emoji-btn {
+      font-size: 18px; line-height: 26px; width: 26px; height: 26px; text-align: center;
+    }
   </style>
 </head>
 <body>
 
   <div id="map"></div>
-  <div class="top-right" id="custom-panel" style="display:none"></div>
 
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -78,7 +75,7 @@
     // --- Botón GEOLOCALIZACIÓN ---
     let locateMarker, locateCircle;
     const LocateControl = L.Control.extend({
-      options: { position: 'topleft' }, // se añade después del home
+      options: { position: 'topleft' }, // debajo del home
       onAdd: function() {
         const container = L.DomUtil.create('div', 'leaflet-bar');
         const link = L.DomUtil.create('a', 'emoji-btn', container);
@@ -172,16 +169,16 @@
     enclavesLayer.addTo(map); // activa desde el inicio
 
     // =========================
-    // CAPA BIC TENERIFE (POLÍGONOS) con categorías
+    // CAPA BIC TENERIFE (POLÍGONOS) con categorías y opacidad (50% por defecto)
     // =========================
 
-    // Helper: normalizar texto (quitar acentos y mayúsculas)
+    // Normalizar texto (mayúsculas y sin acentos)
     const norm = s => (s || '').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-    // Mapa de estilos por categoría (en RGB)
+    // Colores por categoría (RGB) según tu lista
     const BIC_COLORS = {
-      'CONJUNTO HISTÓRICO':   { fill:[  6,169,230], stroke:[  0, 77,168] },
+      'CONJUNTO HISTORICO':   { fill:[  6,169,230], stroke:[  0, 77,168] },
       'JARDIN HISTORICO':     { fill:[211,255,190], stroke:[ 38,115,  0] },
       'MONUMENTO':            { fill:[255,127,127], stroke:[168,  0,  0] },
       'SITIO ETNOLOGICO':     { fill:[209,255,115], stroke:[152,230,  0] },
@@ -189,15 +186,14 @@
       'ZONA ARQUEOLOGICA':    { fill:[255,255,115], stroke:[230,230,  0] },
       'ZONA PALEONTOLOGICA':  { fill:[158,215,194], stroke:[ 68,137,112] }
     };
-
-    const rgb = arr => `rgb(${arr[0]},${arr[1]},${arr[2]})`;
+    const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
 
     // Opacidad inicial 50%
     let bicOpacity = 0.5;
 
-    // Función de estilo dependiente de la categoría + opacidad
     function styleBIC(feature) {
-      const raw = feature?.properties?.bic_categoria || feature?.properties?.BIC_CATEGORIA;
+      // Campo correcto del GeoJSON: 'bic_catego'
+      const raw = feature?.properties?.bic_catego;
       const key = norm(raw);
       const c = BIC_COLORS[key] || { fill:[200,200,200], stroke:[120,120,120] };
       return {
@@ -212,9 +208,9 @@
     const bicLayer = L.geoJSON(null, {
       style: styleBIC,
       onEachFeature: (feature, layer) => {
-        const name = feature?.properties?.Name || feature?.properties?.name || 'BIC';
-        const cat  = feature?.properties?.bic_categoria || '';
-        layer.bindPopup(`<b>${name}</b>${cat ? '<br>'+cat : ''}`);
+        const nombre = feature?.properties?.bic_nombre || 'BIC';
+        const cat    = feature?.properties?.bic_catego || '';
+        layer.bindPopup(`<b>${nombre}</b>${cat ? '<br>'+cat : ''}`);
       }
     });
 
@@ -278,8 +274,7 @@
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.on(input, 'input', (e) => {
           bicOpacity = Number(e.target.value) / 100; // 0..1
-          // Reaplicar estilos con la nueva opacidad
-          bicLayer.setStyle(styleBIC);
+          bicLayer.setStyle(styleBIC);               // reaplicar estilos con la nueva opacidad
         });
         return div;
       }
