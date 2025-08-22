@@ -20,8 +20,6 @@
       background: white; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       padding: 8px 10px; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; font-size: 14px;
     }
-
-    /* Estilo pequeño para el control de opacidad */
     .opacity-control.leaflet-control {
       background: #fff; padding: 8px 10px; border-radius: 6px;
       box-shadow: 0 2px 8px rgba(0,0,0,.15); font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -181,6 +179,31 @@
     enclavesLayer.addTo(map); // activa desde el inicio
 
     // =========================
+    // CAPA BIC TENERIFE (POLÍGONOS)
+    // =========================
+    const bicStyle = {
+      color: '#d9534f',   // contorno rojo
+      weight: 2,
+      fillColor: '#d9534f',
+      fillOpacity: 0.15
+    };
+
+    const bicLayer = L.geoJSON(null, {
+      style: bicStyle,
+      onEachFeature: (feature, layer) => {
+        const name = feature?.properties?.Name || 'BIC';
+        layer.bindPopup(`<b>${name}</b>`);
+      }
+    });
+
+    fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/BIC_Tenerife_WGS84.geojson')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(geo => bicLayer.addData(geo))
+      .catch(err => console.warn('No se pudo cargar BIC:', err));
+
+    bicLayer.addTo(map); // activa desde el inicio
+
+    // =========================
     // CONTROLES DE CAPAS
     // =========================
     const baseMaps = {
@@ -190,7 +213,8 @@
     };
     const overlays = {
       'Enclaves (puntos)': enclavesLayer,
-      'Municipios (límite)': municipiosLayer
+      'Municipios (límite)': municipiosLayer,
+      'BIC Tenerife (polígonos)': bicLayer
     };
 
     // Control SOLO bases (arriba-derecha)
@@ -226,3 +250,4 @@
     L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
   </script>
 </body>
+</html>
