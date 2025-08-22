@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Visor Tenerife • Leaflet</title>
+  <title>Visor Cartográfico Tenerife</title>
 
   <link
     rel="stylesheet"
@@ -58,12 +58,30 @@
     }
     .legend-control details[open] summary::after { content: '▴'; }
     .legend-body { margin-top: 8px; }
+
+    #mapTitle{
+  position:absolute; top:12px; left:50%; transform:translateX(-50%);
+  z-index:1000; pointer-events:none;
+  background:rgba(255,255,255,0.9); backdrop-filter:blur(3px);
+  padding:8px 12px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.15);
+  font:600 16px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  text-align:center;
+}
+#mapTitle span{ font-weight:400; font-size:14px; color:#666; }
+@media (max-width:480px){
+  #mapTitle{ font-size:14px; padding:6px 10px; }
+  #mapTitle span{ font-size:12px; }
+}
   </style>
 </head>
 <body>
 
-  <div id="map"></div>
-  <div id="mapTitle">Enclaves paisajísticos singulares<br><span> de Tenerife</span></div>
+<div id="map"></div>
+
+<div id="mapTitle">
+  Enclaves paisajísticos singulares<br>
+  <span>de Tenerife</span>
+</div>
 
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
