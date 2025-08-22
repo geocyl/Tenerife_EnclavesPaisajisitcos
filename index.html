@@ -23,17 +23,17 @@
     /* Leyenda / gestor de capas */
     .legend-control.leaflet-control{
       background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.15);
-      padding:10px; min-width: 240px; font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      padding:10px; min-width: 260px; font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
     }
     .legend-control h4{margin:0 0 6px 0;font-size:14px}
     .legend-section{margin-top:8px}
     .legend-item{display:flex;align-items:center;gap:8px;margin:6px 0}
     .legend-item input[type="checkbox"]{transform:translateY(1px)}
-    .legend-swatch{width:16px;height:12px;border:2px solid #888;box-sizing:border-box;border-radius:2px}
-    .legend-swatch.line{height:0;border-top-width:3px;border-bottom-width:0}
-    .legend-swatch.point{width:10px;height:10px;border-radius:50%}
+    .legend-swatch{width:16px;height:12px;border:2px solid #000;box-sizing:border-box;border-radius:2px}
+    .legend-swatch.line{height:0;border-top-width:3px;border-bottom-width:0;border-color:#00599C}
+    .legend-swatch.point{width:10px;height:10px;border-radius:50%;border-color:#143D6B;background:#4DA3FF}
     .legend-slider{display:flex;align-items:center;gap:8px;margin:6px 0}
-    .legend-slider input[type="range"]{width:140px}
+    .legend-slider input[type="range"]{width:150px}
     details summary{cursor:pointer;user-select:none;margin:6px 0;font-weight:600}
     .cat-list{margin-left:4px}
     .cat-row{display:flex;align-items:center;gap:8px;margin:4px 0}
@@ -188,13 +188,13 @@
     // =========================
     const bicPaneName = 'bic-pane';
     map.createPane(bicPaneName);
-    map.getPane(bicPaneName).style.zIndex = 450; // Municipios(300) < BIC(450) < Enclaves(650)
+    map.getPane(bicPaneName).style.zIndex = 450; // Municipios(300) < BIC(450) < ENP(500) < Enclaves(650)
 
     // Normalizar texto (mayúsculas y sin acentos)
     const norm = s => (s || '').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-    // Colores por categoría (RGB)
+    // Colores por categoría (BIC)
     const BIC_COLORS = {
       'CONJUNTO HISTORICO':   { fill:[  6,169,230], stroke:[  0, 77,168] },
       'JARDIN HISTORICO':     { fill:[211,255,190], stroke:[ 38,115,  0] },
@@ -204,17 +204,24 @@
       'ZONA ARQUEOLOGICA':    { fill:[255,255,115], stroke:[230,230,  0] },
       'ZONA PALEONTOLOGICA':  { fill:[158,215,194], stroke:[ 68,137,112] }
     };
+    const BIC_LABELS = {
+      'CONJUNTO HISTORICO':'Conjunto Histórico',
+      'JARDIN HISTORICO':'Jardín Histórico',
+      'MONUMENTO':'Monumento',
+      'SITIO ETNOLOGICO':'Sitio Etnológico',
+      'SITIO HISTORICO':'Sitio Histórico',
+      'ZONA ARQUEOLOGICA':'Zona Arqueológica',
+      'ZONA PALEONTOLOGICA':'Zona Paleontológica'
+    };
     const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
 
-    // Opacidad inicial 50%
-    let bicOpacity = 0.5;
+    let bicOpacity = 0.5; // 50% por defecto
 
     function styleBIC(feature) {
-      const raw = feature?.properties?.bic_catego;   // campo correcto
+      const raw = feature?.properties?.bic_catego;
       const key = norm(raw);
       const c = BIC_COLORS[key] || { fill:[200,200,200], stroke:[120,120,120] };
       return {
-        pane: bicPaneName,
         color: rgb(c.stroke),
         weight: 2,
         opacity: bicOpacity,     // borde
@@ -242,7 +249,69 @@
     bicLayer.addTo(map); // activa desde el inicio
 
     // =========================
-    // CONTROLES: Bases (arriba-dcha) + Leyenda/Capas (abajo-dcha)
+    // CAPA ENP TENERIFE (POLÍGONOS) con categorías y opacidad (50% por defecto)
+    // =========================
+    const enpPaneName = 'enp-pane';
+    map.createPane(enpPaneName);
+    map.getPane(enpPaneName).style.zIndex = 500; // por encima de BIC, por debajo de Enclaves
+
+    // Colores por categoría (ENP) – borde negro en todas
+    const ENP_COLORS = {
+      'MONUMENTO NATURAL':         { fill:[  0, 77,168] },
+      'PAISAJE PROTEGIDO':         { fill:[166,166,255] },
+      'PARQUE NACIONAL':           { fill:[255,255,115] },
+      'PARQUE NATURAL':            { fill:[255,170,  0] },
+      'PARQUE RURAL':              { fill:[255,127,127] },
+      'RESERVA NATURAL ESPECIAL':  { fill:[112,168,  0] },
+      'RESERVA NATURAL INTEGRAL':  { fill:[ 38,115,  0] },
+      'SITIO DE INTERES CIENTIFICO': { fill:[233,255,190] }
+    };
+    const ENP_LABELS = {
+      'MONUMENTO NATURAL':'Monumento Natural',
+      'PAISAJE PROTEGIDO':'Paisaje Protegido',
+      'PARQUE NACIONAL':'Parque Nacional',
+      'PARQUE NATURAL':'Parque Natural',
+      'PARQUE RURAL':'Parque Rural',
+      'RESERVA NATURAL ESPECIAL':'Reserva Natural Especial',
+      'RESERVA NATURAL INTEGRAL':'Reserva Natural Integral',
+      'SITIO DE INTERES CIENTIFICO':'Sitio de Interés Científico'
+    };
+
+    let enpOpacity = 0.5; // 50% por defecto
+
+    function styleENP(feature) {
+      const raw = feature?.properties?.categoria;
+      const key = norm(raw);
+      const c = ENP_COLORS[key] || { fill:[200,200,200] };
+      return {
+        color: '#000',              // borde negro
+        weight: 2,
+        opacity: enpOpacity,        // borde
+        fillColor: rgb(c.fill),
+        fillOpacity: enpOpacity     // relleno
+      };
+    }
+
+    const enpLayer = L.geoJSON(null, {
+      pane: enpPaneName,
+      style: styleENP,
+      onEachFeature: (feature, layer) => {
+        const nombre = feature?.properties?.nombre || 'ENP';
+        const categoria = feature?.properties?.categoria || '';
+        layer.bindPopup(`<b>${nombre}</b>${categoria ? '<br>'+categoria : ''}`);
+      }
+    });
+
+    // ⚠️ Asegúrate de subir ENP_Tenerife.geojson junto a este index.html o cambia la ruta:
+    fetch('./ENP_Tenerife.geojson')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(geo => { enpLayer.addData(geo); enclavesLayer.bringToFront(); })
+      .catch(err => console.warn('No se pudo cargar ENP:', err));
+
+    enpLayer.addTo(map); // activa desde el inicio
+
+    // =========================
+    // CONTROL DE BASES (arriba-derecha)
     // =========================
     const baseMaps = {
       'OSM': osm,
@@ -251,40 +320,51 @@
     };
     L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
 
-    // ---- Leyenda/Capas personalizada (incluye toggles + sliders + categorías BIC) ----
+    // =========================
+    // LEYENDA / GESTOR DE CAPAS (abajo-derecha)
+    // =========================
     const LegendControl = L.Control.extend({
       options: { position: 'bottomright' },
       onAdd: function() {
         const div = L.DomUtil.create('div', 'legend-control leaflet-control');
 
-        // Construir HTML
         div.innerHTML = `
           <h4>Capas</h4>
           <div class="legend-section" id="layer-toggles">
             <label class="legend-item">
               <input type="checkbox" id="chk-enclaves" checked>
-              <span class="legend-swatch point" style="background:#4DA3FF;border-color:#143D6B;"></span>
+              <span class="legend-swatch point"></span>
               <span>Enclaves (puntos)</span>
             </label>
             <label class="legend-item">
               <input type="checkbox" id="chk-municipios" checked>
-              <span class="legend-swatch line" style="border-color:#00599C;"></span>
+              <span class="legend-swatch line"></span>
               <span>Municipios (límite)</span>
             </label>
-            <div class="legend-item">
+            <label class="legend-item">
               <input type="checkbox" id="chk-bic" checked>
-              <span class="legend-swatch" style="background:#ccc;border-color:#666;"></span>
+              <span class="legend-swatch" style="background:#ccc;"></span>
               <span>BIC Tenerife (polígonos)</span>
-            </div>
+            </label>
+            <label class="legend-item">
+              <input type="checkbox" id="chk-enp" checked>
+              <span class="legend-swatch" style="background:#eee;"></span>
+              <span>ENP Tenerife (polígonos)</span>
+            </label>
 
             <div class="legend-slider" title="Opacidad límites municipios">
-              <label for="muni-opacity" style="min-width:100px">Opacidad límites</label>
+              <label for="muni-opacity" style="min-width:120px">Opacidad límites</label>
               <input id="muni-opacity" type="range" min="0" max="100" value="100" />
             </div>
 
             <div class="legend-slider" title="Opacidad polígonos BIC">
-              <label for="bic-opacity" style="min-width:100px">Opacidad BIC</label>
+              <label for="bic-opacity" style="min-width:120px">Opacidad BIC</label>
               <input id="bic-opacity" type="range" min="0" max="100" value="50" />
+            </div>
+
+            <div class="legend-slider" title="Opacidad polígonos ENP">
+              <label for="enp-opacity" style="min-width:120px">Opacidad ENP</label>
+              <input id="enp-opacity" type="range" min="0" max="100" value="50" />
             </div>
           </div>
 
@@ -293,20 +373,20 @@
               <summary>Simbología BIC (por categoría)</summary>
               <div class="cat-list" id="bic-cats"></div>
             </details>
+            <details open>
+              <summary>Simbología ENP (por categoría)</summary>
+              <div class="cat-list" id="enp-cats"></div>
+            </details>
           </div>
         `;
 
-        // Evitar que arrastrar el slider mueva el mapa
         L.DomEvent.disableClickPropagation(div);
 
-        // Toggling de capas
+        // Checkboxes
         const chkEncl = div.querySelector('#chk-enclaves');
         const chkMun  = div.querySelector('#chk-municipios');
         const chkBic  = div.querySelector('#chk-bic');
-
-        chkEncl.checked = map.hasLayer(enclavesLayer);
-        chkMun.checked  = map.hasLayer(municipiosLayer);
-        chkBic.checked  = map.hasLayer(bicLayer);
+        const chkEnp  = div.querySelector('#chk-enp');
 
         chkEncl.addEventListener('change', e=>{
           if(e.target.checked){ enclavesLayer.addTo(map); enclavesLayer.bringToFront(); }
@@ -320,8 +400,12 @@
           if(e.target.checked){ bicLayer.addTo(map); enclavesLayer.bringToFront(); }
           else{ map.removeLayer(bicLayer); }
         });
+        chkEnp.addEventListener('change', e=>{
+          if(e.target.checked){ enpLayer.addTo(map); enclavesLayer.bringToFront(); }
+          else{ map.removeLayer(enpLayer); }
+        });
 
-        // Sliders de opacidad
+        // Sliders
         const muniOp = div.querySelector('#muni-opacity');
         muniOp.addEventListener('input', e=>{
           const v = Number(e.target.value)/100;
@@ -335,16 +419,36 @@
           enclavesLayer.bringToFront();
         });
 
-        // Rellenar tabla de categorías BIC
-        const catsDiv = div.querySelector('#bic-cats');
-        const entries = Object.entries(BIC_COLORS);
-        catsDiv.innerHTML = entries.map(([name, c])=>{
+        const enpOp = div.querySelector('#enp-opacity');
+        enpOp.addEventListener('input', e=>{
+          enpOpacity = Number(e.target.value)/100;
+          enpLayer.setStyle(styleENP);
+          enclavesLayer.bringToFront();
+        });
+
+        // Rellenar simbología BIC
+        const bicCatsDiv = div.querySelector('#bic-cats');
+        bicCatsDiv.innerHTML = Object.entries(BIC_COLORS).map(([key, c])=>{
           const fill = `rgb(${c.fill[0]},${c.fill[1]},${c.fill[2]})`;
           const stroke = `rgb(${c.stroke[0]},${c.stroke[1]},${c.stroke[2]})`;
+          const label = BIC_LABELS[key] || key;
           return `
             <div class="cat-row">
               <span class="legend-swatch" style="background:${fill};border-color:${stroke}"></span>
-              <span class="cat-name">${name.replace(/OLOGICO/g,'ológico').replace(/HISTORICO/g,'Histórico')}</span>
+              <span class="cat-name">${label}</span>
+            </div>
+          `;
+        }).join('');
+
+        // Rellenar simbología ENP (borde negro)
+        const enpCatsDiv = div.querySelector('#enp-cats');
+        enpCatsDiv.innerHTML = Object.entries(ENP_COLORS).map(([key, c])=>{
+          const fill = `rgb(${c.fill[0]},${c.fill[1]},${c.fill[2]})`;
+          const label = ENP_LABELS[key] || key;
+          return `
+            <div class="cat-row">
+              <span class="legend-swatch" style="background:${fill};border-color:#000"></span>
+              <span class="cat-name">${label}</span>
             </div>
           `;
         }).join('');
