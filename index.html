@@ -39,7 +39,7 @@
     .cat-row{display:flex;align-items:center;gap:8px;margin:4px 0}
     .cat-name{flex:1}
 
-    /* Swatch a rayas para la Biosfera en la leyenda (visual) */
+    /* Swatch a rayas para la Biosfera (visual en leyenda) */
     .swatch-bios { 
       background: repeating-linear-gradient(45deg, #800020, #800020 4px, transparent 4px, transparent 8px);
       border-color:#800020 !important;
@@ -55,7 +55,7 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
-  <!-- Plugin para rellenos a rayas (opcional). Si no carga, usaremos relleno liso. -->
+  <!-- Plugin opcional para rellenos a rayas -->
   <script src="https://unpkg.com/leaflet.pattern/leaflet.pattern.js"></script>
 
   <script>
@@ -74,7 +74,7 @@
       maxBoundsViscosity: 0.5
     });
 
-    // --- Botón HOME (volver a vista inicial) ---
+    // --- Botón HOME ---
     const HomeControl = L.Control.extend({
       options: { position: 'topleft' },
       onAdd: function() {
@@ -94,7 +94,7 @@
     // --- Botón GEOLOCALIZACIÓN ---
     let locateMarker, locateCircle;
     const LocateControl = L.Control.extend({
-      options: { position: 'topleft' }, // debajo del home
+      options: { position: 'topleft' },
       onAdd: function() {
         const container = L.DomUtil.create('div', 'leaflet-bar');
         const link = L.DomUtil.create('a', 'emoji-btn', container);
@@ -132,50 +132,39 @@
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     });
-
-    const esriSat = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 20, attribution: 'Imagery &copy; Esri, Earthstar Geographics' }
-    );
-
-    const cartoLight = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      { maxZoom: 20, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>' }
-    );
-
-    osm.addTo(map); // base por defecto
-
-    // =========================
-    //  CAPA MUNICIPIOS (LÍMITE)
-    // =========================
-    const municipiosPaneName = 'municipios-pane';
-    map.createPane(municipiosPaneName);
-    map.getPane(municipiosPaneName).style.zIndex = 300; // por debajo de otros overlays
-
-    const municipiosStyle = { color: '#00599C', weight: 2, fill: false, opacity: 1 };
-
-    const municipiosLayer = L.geoJSON(null, {
-      pane: municipiosPaneName,
-      interactive: false,  // sin clics
-      style: municipiosStyle
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 20, attribution: 'Imagery &copy; Esri, Earthstar Geographics'
     });
+    const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    });
+    osm.addTo(map);
 
+    // =========================
+    //  PANE Z-INDEX
+    // =========================
+    const municipiosPaneName = 'municipios-pane'; map.createPane(municipiosPaneName); map.getPane(municipiosPaneName).style.zIndex = 300;
+    const bicPaneName = 'bic-pane';               map.createPane(bicPaneName);         map.getPane(bicPaneName).style.zIndex = 450;
+    const enpPaneName = 'enp-pane';               map.createPane(enpPaneName);         map.getPane(enpPaneName).style.zIndex = 500;
+    const biosPaneName = 'bios-pane';             map.createPane(biosPaneName);        map.getPane(biosPaneName).style.zIndex = 525;
+    const litoralPaneName = 'litoral-pane';       map.createPane(litoralPaneName);     map.getPane(litoralPaneName).style.zIndex = 540; // líneas de litoral
+    const enclavesPaneName = 'enclaves-pane';     map.createPane(enclavesPaneName);    map.getPane(enclavesPaneName).style.zIndex = 650;
+
+    // =========================
+    //  MUNICIPIOS (LÍMITE)
+    // =========================
+    const municipiosStyle = { color: '#00599C', weight: 2, fill: false, opacity: 1 };
+    const municipiosLayer = L.geoJSON(null, { pane: municipiosPaneName, interactive: false, style: municipiosStyle });
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/Munis_Limite.json')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(geo => municipiosLayer.addData(geo))
       .catch(err => console.warn('No se pudo cargar municipios:', err));
-
-    municipiosLayer.addTo(map); // activa desde el inicio
+    municipiosLayer.addTo(map);
 
     // =========================
-    // CAPA ENCLAVES (PUNTOS) — SIEMPRE POR ENCIMA
+    //  ENCLAVES (PUNTOS) — SIEMPRE ARRIBA
     // =========================
-    const enclavesPaneName = 'enclaves-pane';
-    map.createPane(enclavesPaneName);
-    map.getPane(enclavesPaneName).style.zIndex = 650; // > markerPane(600) y > overlayPane(400)
-
     const enclavesStyle = { radius: 6, weight: 2, color: '#143D6B', fillColor: '#4DA3FF', fillOpacity: 0.9 };
-
     const enclavesLayer = L.geoJSON(null, {
       pointToLayer: (feature, latlng) => L.circleMarker(latlng, { pane: enclavesPaneName, ...enclavesStyle }),
       onEachFeature: (feature, layer) => {
@@ -183,24 +172,17 @@
         layer.bindPopup(`<b>${name}</b>`);
       }
     });
-
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/Puntos_Enclaves.json')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(geo => { enclavesLayer.addData(geo); enclavesLayer.bringToFront(); })
       .catch(err => console.warn('No se pudo cargar enclaves:', err));
-
-    enclavesLayer.addTo(map); // activa desde el inicio
+    enclavesLayer.addTo(map);
 
     // =========================
-    // CAPA BIC TENERIFE (POLÍGONOS) con categorías y opacidad (50%)
+    //  BIC (POLÍGONOS) con categorías + opacidad
     // =========================
-    const bicPaneName = 'bic-pane';
-    map.createPane(bicPaneName);
-    map.getPane(bicPaneName).style.zIndex = 450; // Municipios(300) < BIC(450) < ENP(500) < Biosfera(525) < Enclaves(650)
-
     const norm = s => (s || '').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-
     const BIC_COLORS = {
       'CONJUNTO HISTORICO':   { fill:[  6,169,230], stroke:[  0, 77,168] },
       'JARDIN HISTORICO':     { fill:[211,255,190], stroke:[ 38,115,  0] },
@@ -211,34 +193,20 @@
       'ZONA PALEONTOLOGICA':  { fill:[158,215,194], stroke:[ 68,137,112] }
     };
     const BIC_LABELS = {
-      'CONJUNTO HISTORICO':'Conjunto Histórico',
-      'JARDIN HISTORICO':'Jardín Histórico',
-      'MONUMENTO':'Monumento',
-      'SITIO ETNOLOGICO':'Sitio Etnológico',
-      'SITIO HISTORICO':'Sitio Histórico',
-      'ZONA ARQUEOLOGICA':'Zona Arqueológica',
+      'CONJUNTO HISTORICO':'Conjunto Histórico','JARDIN HISTORICO':'Jardín Histórico','MONUMENTO':'Monumento',
+      'SITIO ETNOLOGICO':'Sitio Etnológico','SITIO HISTORICO':'Sitio Histórico','ZONA ARQUEOLOGICA':'Zona Arqueológica',
       'ZONA PALEONTOLOGICA':'Zona Paleontológica'
     };
     const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
-
     let bicOpacity = 0.5;
-
     function styleBIC(feature) {
       const raw = feature?.properties?.bic_catego;
       const key = norm(raw);
       const c = BIC_COLORS[key] || { fill:[200,200,200], stroke:[120,120,120] };
-      return {
-        color: rgb(c.stroke),
-        weight: 2,
-        opacity: bicOpacity,
-        fillColor: rgb(c.fill),
-        fillOpacity: bicOpacity
-      };
+      return { color: rgb(c.stroke), weight: 2, opacity: bicOpacity, fillColor: rgb(c.fill), fillOpacity: bicOpacity };
     }
-
     const bicLayer = L.geoJSON(null, {
-      pane: bicPaneName,
-      style: styleBIC,
+      pane: bicPaneName, style: styleBIC,
       onEachFeature: (feature, layer) => {
         const nombre = feature?.properties?.bic_nombre || 'BIC';
         const cat    = feature?.properties?.bic_catego || '';
@@ -246,21 +214,15 @@
         layer.bindPopup(`<b>${nombre}</b>${cat ? '<br>'+cat : ''}${desc ? '<br>'+desc : ''}`);
       }
     });
-
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/BIC_Tenerife.geojson')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(geo => { bicLayer.addData(geo); enclavesLayer.bringToFront(); })
       .catch(err => console.warn('No se pudo cargar BIC:', err));
-
     bicLayer.addTo(map);
 
     // =========================
-    // CAPA ENP TENERIFE (POLÍGONOS) con categorías y opacidad (50%)
+    //  ENP (POLÍGONOS) con categorías + opacidad
     // =========================
-    const enpPaneName = 'enp-pane';
-    map.createPane(enpPaneName);
-    map.getPane(enpPaneName).style.zIndex = 500; // por encima de BIC, por debajo de Biosfera/Enclaves
-
     const ENP_COLORS = {
       'MONUMENTO NATURAL':         { fill:[  0, 77,168] },
       'PAISAJE PROTEGIDO':         { fill:[166,166,255] },
@@ -272,114 +234,82 @@
       'SITIO DE INTERES CIENTIFICO': { fill:[233,255,190] }
     };
     const ENP_LABELS = {
-      'MONUMENTO NATURAL':'Monumento Natural',
-      'PAISAJE PROTEGIDO':'Paisaje Protegido',
-      'PARQUE NACIONAL':'Parque Nacional',
-      'PARQUE NATURAL':'Parque Natural',
-      'PARQUE RURAL':'Parque Rural',
-      'RESERVA NATURAL ESPECIAL':'Reserva Natural Especial',
-      'RESERVA NATURAL INTEGRAL':'Reserva Natural Integral',
-      'SITIO DE INTERES CIENTIFICO':'Sitio de Interés Científico'
+      'MONUMENTO NATURAL':'Monumento Natural','PAISAJE PROTEGIDO':'Paisaje Protegido','PARQUE NACIONAL':'Parque Nacional',
+      'PARQUE NATURAL':'Parque Natural','PARQUE RURAL':'Parque Rural','RESERVA NATURAL ESPECIAL':'Reserva Natural Especial',
+      'RESERVA NATURAL INTEGRAL':'Reserva Natural Integral','SITIO DE INTERES CIENTIFICO':'Sitio de Interés Científico'
     };
-
     let enpOpacity = 0.5;
-
     function styleENP(feature) {
       const raw = feature?.properties?.categoria;
       const key = norm(raw);
       const c = ENP_COLORS[key] || { fill:[200,200,200] };
-      return {
-        color: '#000',              // borde negro
-        weight: 2,
-        opacity: enpOpacity,        // borde
-        fillColor: rgb(c.fill),
-        fillOpacity: enpOpacity     // relleno
-      };
+      return { color: '#000', weight: 2, opacity: enpOpacity, fillColor: rgb(c.fill), fillOpacity: enpOpacity };
     }
-
     const enpLayer = L.geoJSON(null, {
-      pane: enpPaneName,
-      style: styleENP,
+      pane: enpPaneName, style: styleENP,
       onEachFeature: (feature, layer) => {
         const nombre = feature?.properties?.nombre || 'ENP';
         const categoria = feature?.properties?.categoria || '';
         layer.bindPopup(`<b>${nombre}</b>${categoria ? '<br>'+categoria : ''}`);
       }
     });
-
     fetch('./ENP_Tenerife.geojson')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(geo => { enpLayer.addData(geo); enclavesLayer.bringToFront(); })
       .catch(err => console.warn('No se pudo cargar ENP:', err));
-
     enpLayer.addTo(map);
 
     // =========================
-    // CAPA BIOSFERA TENERIFE (POLÍGONOS) con rayas o liso y opacidad (50%)
+    //  BIOSFERA (POLÍGONOS) rayas o liso + opacidad
     // =========================
-    const biosPaneName = 'bios-pane';
-    map.createPane(biosPaneName);
-    map.getPane(biosPaneName).style.zIndex = 525; // por encima de ENP/BIC, debajo de Enclaves
-
-    let biosOpacity = 0.5;
-    const BIOS_COLOR = '#800020'; // granate
-
-    // Intentar usar patrón de rayas si el plugin está disponible
+    let biosOpacity = 0.5; const BIOS_COLOR = '#800020';
     let biosStripes = null;
     function makeBiosPattern(opacity) {
       if (window.L && L.StripePattern) {
-        const pat = new L.StripePattern({
-          weight: 4,          // grosor de las rayas
-          spaceWeight: 4,     // separación
-          color: BIOS_COLOR,  // color de las rayas
-          opacity: opacity,   // opacidad de las rayas
-          angle: 45
-        });
-        pat.addTo(map);
-        return pat;
+        const pat = new L.StripePattern({ weight:4, spaceWeight:4, color:BIOS_COLOR, opacity, angle:45 });
+        pat.addTo(map); return pat;
       }
       return null;
     }
     biosStripes = makeBiosPattern(biosOpacity);
-
-    function styleBios(feature) {
-      // Si hay patrón disponible, úsalo; si no, relleno liso granate
-      const base = {
-        color: BIOS_COLOR,     // borde del polígono (granate)
-        weight: 1.5,
-        opacity: biosOpacity
-      };
-      if (biosStripes) {
-        return { ...base, fillPattern: biosStripes };
-      } else {
-        return { ...base, fillColor: BIOS_COLOR, fillOpacity: biosOpacity };
-      }
+    function styleBios() {
+      const base = { color: BIOS_COLOR, weight: 1.5, opacity: biosOpacity };
+      return biosStripes ? { ...base, fillPattern: biosStripes } : { ...base, fillColor: BIOS_COLOR, fillOpacity: biosOpacity };
     }
-
     const biosLayer = L.geoJSON(null, {
-      pane: biosPaneName,
-      style: styleBios,
+      pane: biosPaneName, style: styleBios,
       onEachFeature: (feature, layer) => {
         const name = feature?.properties?.MAB_NAME || 'Reserva de la Biosfera';
         layer.bindPopup(`<b>${name}</b>`);
       }
     });
-
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/BiosferaTen.geojson')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(geo => { biosLayer.addData(geo); enclavesLayer.bringToFront(); })
       .catch(err => console.warn('No se pudo cargar Biosfera:', err));
-
     biosLayer.addTo(map);
+
+    // =========================
+    //  LITORAL: Límite SP (línea rosa/fucsia)
+    // =========================
+    const LITORAL_SP_COLOR = '#e60073'; // fucsia
+    const litoralSPLayer = L.geoJSON(null, {
+      pane: litoralPaneName,
+      interactive: false, // no captura clics
+      style: { color: LITORAL_SP_COLOR, weight: 3, opacity: 0.95 }
+    });
+    fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/LimiteSP.geojson')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(geo => litoralSPLayer.addData(geo))
+      .catch(err => console.warn('No se pudo cargar Límite SP:', err));
+    litoralSPLayer.addTo(map);
+
+    // (Cuando tengas la 2ª capa de litoral, la añadimos aquí igual que la anterior)
 
     // =========================
     // CONTROL DE BASES (arriba-derecha)
     // =========================
-    const baseMaps = {
-      'OSM': osm,
-      'Satélite (Esri)': esriSat,
-      'Gris (Carto Positron)': cartoLight
-    };
+    const baseMaps = { 'OSM': osm, 'Satélite (Esri)': esriSat, 'Gris (Carto Positron)': cartoLight };
     L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
 
     // =========================
@@ -410,7 +340,7 @@
             </label>
             <label class="legend-item">
               <input type="checkbox" id="chk-enp" checked>
-              <span class="legend-swatch" style="background:#eee;"></span>
+              <span class="legend-swatch" style="background:#eee;border-color:#000;"></span>
               <span>ENP Tenerife (polígonos)</span>
             </label>
             <label class="legend-item">
@@ -418,22 +348,24 @@
               <span class="legend-swatch swatch-bios"></span>
               <span>Reserva de la Biosfera</span>
             </label>
+            <label class="legend-item">
+              <input type="checkbox" id="chk-litoralsp" checked>
+              <span class="legend-swatch line" style="border-color:${LITORAL_SP_COLOR};"></span>
+              <span>Límite SP (litoral)</span>
+            </label>
 
             <div class="legend-slider" title="Opacidad límites municipios">
               <label for="muni-opacity" style="min-width:120px">Opacidad límites</label>
               <input id="muni-opacity" type="range" min="0" max="100" value="100" />
             </div>
-
             <div class="legend-slider" title="Opacidad polígonos BIC">
               <label for="bic-opacity" style="min-width:120px">Opacidad BIC</label>
               <input id="bic-opacity" type="range" min="0" max="100" value="50" />
             </div>
-
             <div class="legend-slider" title="Opacidad polígonos ENP">
               <label for="enp-opacity" style="min-width:120px">Opacidad ENP</label>
               <input id="enp-opacity" type="range" min="0" max="100" value="50" />
             </div>
-
             <div class="legend-slider" title="Opacidad Reserva Biosfera">
               <label for="bios-opacity" style="min-width:120px">Opacidad Biosfera</label>
               <input id="bios-opacity" type="range" min="0" max="100" value="50" />
@@ -460,6 +392,7 @@
         const chkBic  = div.querySelector('#chk-bic');
         const chkEnp  = div.querySelector('#chk-enp');
         const chkBios = div.querySelector('#chk-bios');
+        const chkLSP  = div.querySelector('#chk-litoralsp');
 
         chkEncl.addEventListener('change', e=>{
           if(e.target.checked){ enclavesLayer.addTo(map); enclavesLayer.bringToFront(); }
@@ -481,36 +414,33 @@
           if(e.target.checked){ biosLayer.addTo(map); enclavesLayer.bringToFront(); }
           else{ map.removeLayer(biosLayer); }
         });
+        chkLSP.addEventListener('change', e=>{
+          if(e.target.checked){ litoralSPLayer.addTo(map); }
+          else{ map.removeLayer(litoralSPLayer); }
+        });
 
         // Sliders
         const muniOp = div.querySelector('#muni-opacity');
         muniOp.addEventListener('input', e=>{
-          const v = Number(e.target.value)/100;
-          municipiosLayer.setStyle({ opacity: v });
+          const v = Number(e.target.value)/100; municipiosLayer.setStyle({ opacity: v });
         });
 
         const bicOp = div.querySelector('#bic-opacity');
         bicOp.addEventListener('input', e=>{
-          bicOpacity = Number(e.target.value)/100;
-          bicLayer.setStyle(styleBIC);
-          enclavesLayer.bringToFront();
+          bicOpacity = Number(e.target.value)/100; bicLayer.setStyle(styleBIC); enclavesLayer.bringToFront();
         });
 
         const enpOp = div.querySelector('#enp-opacity');
         enpOp.addEventListener('input', e=>{
-          enpOpacity = Number(e.target.value)/100;
-          enpLayer.setStyle(styleENP);
-          enclavesLayer.bringToFront();
+          enpOpacity = Number(e.target.value)/100; enpLayer.setStyle(styleENP); enclavesLayer.bringToFront();
         });
 
         const biosOp = div.querySelector('#bios-opacity');
         biosOp.addEventListener('input', e=>{
           biosOpacity = Number(e.target.value)/100;
-
           if (biosStripes && L.StripePattern) {
-            // recrear patrón con nueva opacidad
             try { biosStripes.remove(); } catch(_e){}
-            biosStripes = makeBiosPattern(biosOpacity);
+            biosStripes = (function make(){ const p=new L.StripePattern({ weight:4, spaceWeight:4, color:BIOS_COLOR, opacity:biosOpacity, angle:45 }); p.addTo(map); return p; })();
             biosLayer.setStyle({ fillPattern: biosStripes, opacity: biosOpacity });
           } else {
             biosLayer.setStyle({ fillColor: BIOS_COLOR, fillOpacity: biosOpacity, opacity: biosOpacity });
@@ -523,7 +453,7 @@
         bicCatsDiv.innerHTML = Object.entries(BIC_COLORS).map(([key, c])=>{
           const fill = `rgb(${c.fill[0]},${c.fill[1]},${c.fill[2]})`;
           const stroke = `rgb(${c.stroke[0]},${c.stroke[1]},${c.stroke[2]})`;
-          const label = BIC_LABELS[key] || key;
+          const label = ({"CONJUNTO HISTORICO":"Conjunto Histórico","JARDIN HISTORICO":"Jardín Histórico","MONUMENTO":"Monumento","SITIO ETNOLOGICO":"Sitio Etnológico","SITIO HISTORICO":"Sitio Histórico","ZONA ARQUEOLOGICA":"Zona Arqueológica","ZONA PALEONTOLOGICA":"Zona Paleontológica"})[key] || key;
           return `
             <div class="cat-row">
               <span class="legend-swatch" style="background:${fill};border-color:${stroke}"></span>
