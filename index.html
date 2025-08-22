@@ -60,6 +60,68 @@
 
   <script>
     // --- Centro/zoom iniciales ---
+    const centerTenerife = [28.2916, -16.6291];<!doctype html> 
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visor Tenerife • Leaflet</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; width: 100%; }
+
+    .leaflet-bar a.emoji-btn {
+      font-size: 18px; line-height: 26px; width: 26px; height: 26px; text-align: center;
+    }
+
+    /* Leyenda / gestor de capas */
+    .legend-control.leaflet-control{
+      background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.15);
+      padding:10px; min-width: 260px; font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    }
+    .legend-control h4{margin:0 0 6px 0;font-size:14px}
+    .legend-section{margin-top:8px}
+    .legend-item{display:flex;align-items:center;gap:8px;margin:6px 0}
+    .legend-item input[type="checkbox"]{transform:translateY(1px)}
+    .legend-swatch{width:16px;height:12px;border:2px solid #000;box-sizing:border-box;border-radius:2px}
+    .legend-swatch.line{height:0;border-top-width:3px;border-bottom-width:0;border-color:#00599C}
+    .legend-swatch.point{width:10px;height:10px;border-radius:50%;border-color:#143D6B;background:#4DA3FF}
+    .legend-slider{display:flex;align-items:center;gap:8px;margin:6px 0}
+    .legend-slider input[type="range"]{width:150px}
+    details summary{cursor:pointer;user-select:none;margin:6px 0;font-weight:600}
+    .cat-list{margin-left:4px}
+    .cat-row{display:flex;align-items:center;gap:8px;margin:4px 0}
+    .cat-name{flex:1}
+
+    /* Swatch a rayas para la Biosfera (visual en leyenda) */
+    .swatch-bios { 
+      background: repeating-linear-gradient(45deg, #800020, #800020 4px, transparent 4px, transparent 8px);
+      border-color:#800020 !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <!-- Plugin opcional para rellenos a rayas -->
+  <script src="https://unpkg.com/leaflet.pattern/leaflet.pattern.js"></script>
+
+  <script>
+    // --- Centro/zoom iniciales ---
     const centerTenerife = [28.2916, -16.6291];
     const initialZoom = 10;
 
@@ -147,7 +209,7 @@
     const bicPaneName = 'bic-pane';               map.createPane(bicPaneName);         map.getPane(bicPaneName).style.zIndex = 450;
     const enpPaneName = 'enp-pane';               map.createPane(enpPaneName);         map.getPane(enpPaneName).style.zIndex = 500;
     const biosPaneName = 'bios-pane';             map.createPane(biosPaneName);        map.getPane(biosPaneName).style.zIndex = 525;
-    const litoralPaneName = 'litoral-pane';       map.createPane(litoralPaneName);     map.getPane(litoralPaneName).style.zIndex = 540; // líneas de litoral
+    const litoralPaneName = 'litoral-pane';       map.createPane(litoralPaneName);     map.getPane(litoralPaneName).style.zIndex = 540;
     const enclavesPaneName = 'enclaves-pane';     map.createPane(enclavesPaneName);    map.getPane(enclavesPaneName).style.zIndex = 650;
 
     // =========================
@@ -290,12 +352,14 @@
     biosLayer.addTo(map);
 
     // =========================
-    //  LITORAL: Límite SP (línea rosa/fucsia)
+    //  LITORAL: Límite SP (fucsia) + Límite DPMT (verde)
     // =========================
-    const LITORAL_SP_COLOR = '#e60073'; // fucsia
+    const LITORAL_SP_COLOR   = '#e60073'; // fucsia
+    const LITORAL_DPMT_COLOR = '#00a651'; // verde
+
     const litoralSPLayer = L.geoJSON(null, {
       pane: litoralPaneName,
-      interactive: false, // no captura clics
+      interactive: false,
       style: { color: LITORAL_SP_COLOR, weight: 3, opacity: 0.95 }
     });
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/LimiteSP.geojson')
@@ -304,7 +368,16 @@
       .catch(err => console.warn('No se pudo cargar Límite SP:', err));
     litoralSPLayer.addTo(map);
 
-    // (Cuando tengas la 2ª capa de litoral, la añadimos aquí igual que la anterior)
+    const litoralDPMTLayer = L.geoJSON(null, {
+      pane: litoralPaneName,
+      interactive: false,
+      style: { color: LITORAL_DPMT_COLOR, weight: 3, opacity: 0.95 }
+    });
+    fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/LimiteDPMT.geojson')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(geo => litoralDPMTLayer.addData(geo))
+      .catch(err => console.warn('No se pudo cargar Límite DPMT:', err));
+    litoralDPMTLayer.addTo(map);
 
     // =========================
     // CONTROL DE BASES (arriba-derecha)
@@ -353,6 +426,11 @@
               <span class="legend-swatch line" style="border-color:${LITORAL_SP_COLOR};"></span>
               <span>Límite SP (litoral)</span>
             </label>
+            <label class="legend-item">
+              <input type="checkbox" id="chk-litoraldpmt" checked>
+              <span class="legend-swatch line" style="border-color:${LITORAL_DPMT_COLOR};"></span>
+              <span>Límite DPMT (litoral)</span>
+            </label>
 
             <div class="legend-slider" title="Opacidad límites municipios">
               <label for="muni-opacity" style="min-width:120px">Opacidad límites</label>
@@ -393,6 +471,7 @@
         const chkEnp  = div.querySelector('#chk-enp');
         const chkBios = div.querySelector('#chk-bios');
         const chkLSP  = div.querySelector('#chk-litoralsp');
+        const chkLDPMT= div.querySelector('#chk-litoraldpmt');
 
         chkEncl.addEventListener('change', e=>{
           if(e.target.checked){ enclavesLayer.addTo(map); enclavesLayer.bringToFront(); }
@@ -417,6 +496,10 @@
         chkLSP.addEventListener('change', e=>{
           if(e.target.checked){ litoralSPLayer.addTo(map); }
           else{ map.removeLayer(litoralSPLayer); }
+        });
+        chkLDPMT.addEventListener('change', e=>{
+          if(e.target.checked){ litoralDPMTLayer.addTo(map); }
+          else{ map.removeLayer(litoralDPMTLayer); }
         });
 
         // Sliders
