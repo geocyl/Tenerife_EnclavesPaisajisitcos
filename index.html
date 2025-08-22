@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html> 
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -80,24 +80,88 @@
     // Añadir una por defecto
     osm.addTo(map);
 
-    // Control de capas
+    // =========================
+    //  CAPA MUNICIPIOS (LÍMITE)
+    // =========================
+    // Pane específico por debajo de otros overlays (tilePane ~200, overlayPane ~400).
+    // Lo situamos en 300 para que quede sobre el mapa base, pero por debajo de
+    // enclaves, marcadores, etc. Además, sin interacción.
+    const municipiosPaneName = 'municipios-pane';
+    map.createPane(municipiosPaneName);
+    map.getPane(municipiosPaneName).style.zIndex = 300;
+
+    const municipiosStyle = {
+      color: '#00599C',     // RGB(0, 89, 156)
+      weight: 2,
+      fill: false
+    };
+
+    const municipiosLayer = L.geoJSON(null, {
+      pane: municipiosPaneName,
+      interactive: false,   // sin clicks, solo visual
+      style: municipiosStyle
+    });
+
+    fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/Munis_Limite.json')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(geo => municipiosLayer.addData(geo))
+      .catch(err => console.warn('No se pudo cargar municipios:', err));
+
+    // Añadimos por defecto (para que siempre haga de “línea de fondo”)
+    municipiosLayer.addTo(map);
+
+    // =========================
+    //  CAPA ENCLAVES (PUNTOS)
+    // =========================
+    const enclavesStyle = {
+      radius: 6,
+      weight: 2,
+      color: '#143D6B',     // borde
+      fillColor: '#4DA3FF', // relleno
+      fillOpacity: 0.9
+    };
+
+    const enclavesLayer = L.geoJSON(null, {
+      pointToLayer: (feature, latlng) => L.circleMarker(latlng, enclavesStyle),
+      onEachFeature: (feature, layer) => {
+        // Intentar mostrar nombre/descripcion si existen
+        const p = feature && feature.properties ? feature.properties : {};
+        const titulo = p.name || p.Nombre || p.titulo || p.Titulo || 'Enclave';
+        const desc   = p.descripcion || p.Descripcion || p.desc || '';
+        const extra  = Object.entries(p)
+          .filter(([k]) => !['name','Nombre','titulo','Titulo','descripcion','Descripcion','desc'].includes(k))
+          .slice(0,5) // evitar popups gigantes
+          .map(([k,v]) => `<div><b>${k}:</b> ${v}</div>`).join('');
+        layer.bindPopup(`<b>${titulo}</b>${desc ? '<br>'+desc : ''}${extra ? '<hr>'+extra : ''}`);
+      }
+    });
+
+    fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/Puntos_Enclaves.json')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(geo => enclavesLayer.addData(geo))
+      .catch(err => console.warn('No se pudo cargar enclaves:', err));
+
+    // Control de capas (añadimos overlays)
+    const baseMaps = {
+      'OSM': osm,
+      'Satélite (Esri)': esriSat,
+      'Gris (Carto Positron)': cartoLight
+    };
+    const overlays = {
+      'Enclaves (puntos)': enclavesLayer,
+      // Ofrecemos poder ocultar/mostrar el límite si quieres
+      'Municipios (límite)': municipiosLayer
+    };
+
     L.control.layers(
-      {
-        'OSM': osm,
-        'Satélite (Esri)': esriSat,
-        'Gris (Carto Positron)': cartoLight
-      },
-      null,
+      baseMaps,
+      overlays,
       { position: 'topright', collapsed: false }
     ).addTo(map);
 
     // Control de escala
     L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
 
-    // Marcador de ejemplo (Santa Cruz de Tenerife)
-    L.marker([28.4636, -16.2518])
-      .addTo(map)
-      .bindPopup('<b>Santa Cruz de Tenerife</b><br>Visor Leaflet de ejemplo.');
   </script>
 </body>
 </html>
