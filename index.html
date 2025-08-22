@@ -20,9 +20,11 @@
       background: white; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       padding: 8px 10px; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; font-size: 14px;
     }
+
     .opacity-control.leaflet-control {
       background: #fff; padding: 8px 10px; border-radius: 6px;
       box-shadow: 0 2px 8px rgba(0,0,0,.15); font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin-top: 8px;
     }
     .opacity-control label { display: block; margin-bottom: 6px; }
     .opacity-control input[type="range"] { width: 160px; }
@@ -170,24 +172,52 @@
     enclavesLayer.addTo(map); // activa desde el inicio
 
     // =========================
-    // CAPA BIC TENERIFE (POLÍGONOS)
+    // CAPA BIC TENERIFE (POLÍGONOS) con categorías
     // =========================
-    const bicStyle = {
-      color: '#d9534f',   // contorno rojo
-      weight: 2,
-      fillColor: '#d9534f',
-      fillOpacity: 0.15
+
+    // Helper: normalizar texto (quitar acentos y mayúsculas)
+    const norm = s => (s || '').toString().trim().toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+    // Mapa de estilos por categoría (en RGB)
+    const BIC_COLORS = {
+      'CONJUNTO HISTORICO':   { fill:[  6,169,230], stroke:[  0, 77,168] },
+      'JARDIN HISTORICO':     { fill:[211,255,190], stroke:[ 38,115,  0] },
+      'MONUMENTO':            { fill:[255,127,127], stroke:[168,  0,  0] },
+      'SITIO ETNOLOGICO':     { fill:[209,255,115], stroke:[152,230,  0] },
+      'SITIO HISTORICO':      { fill:[232,190,255], stroke:[132,  0,168] },
+      'ZONA ARQUEOLOGICA':    { fill:[255,255,115], stroke:[230,230,  0] },
+      'ZONA PALEONTOLOGICA':  { fill:[158,215,194], stroke:[ 68,137,112] }
     };
 
+    const rgb = arr => `rgb(${arr[0]},${arr[1]},${arr[2]})`;
+
+    // Opacidad inicial 50%
+    let bicOpacity = 0.5;
+
+    // Función de estilo dependiente de la categoría + opacidad
+    function styleBIC(feature) {
+      const raw = feature?.properties?.bic_categoria || feature?.properties?.BIC_CATEGORIA;
+      const key = norm(raw);
+      const c = BIC_COLORS[key] || { fill:[200,200,200], stroke:[120,120,120] };
+      return {
+        color: rgb(c.stroke),
+        weight: 2,
+        opacity: bicOpacity,     // borde
+        fillColor: rgb(c.fill),
+        fillOpacity: bicOpacity  // relleno
+      };
+    }
+
     const bicLayer = L.geoJSON(null, {
-      style: bicStyle,
+      style: styleBIC,
       onEachFeature: (feature, layer) => {
-        const name = feature?.properties?.Name || 'BIC';
-        layer.bindPopup(`<b>${name}</b>`);
+        const name = feature?.properties?.Name || feature?.properties?.name || 'BIC';
+        const cat  = feature?.properties?.bic_categoria || '';
+        layer.bindPopup(`<b>${name}</b>${cat ? '<br>'+cat : ''}`);
       }
     });
 
-    // 👉 URL actualizada a tu RAW
     fetch('https://raw.githubusercontent.com/geocyl/Tenerife_EnclavesPaisajisitcos/refs/heads/main/BIC_Tenerife.geojson')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(geo => bicLayer.addData(geo))
@@ -216,7 +246,7 @@
     L.control.layers(null, overlays, { position: 'bottomright', collapsed: false }).addTo(map);
 
     // --- Control de Opacidad para Municipios (abajo-derecha) ---
-    const OpacityControl = L.Control.extend({
+    const OpacityControlMunicipios = L.Control.extend({
       options: { position: 'bottomright' },
       onAdd: function() {
         const div = L.DomUtil.create('div', 'opacity-control leaflet-control');
@@ -225,18 +255,36 @@
           <input id="muni-opacity" type="range" min="0" max="100" value="100" />
         `;
         const input = div.querySelector('#muni-opacity');
-
-        // Evitar que el drag del mapa se active al usar el slider
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.on(input, 'input', (e) => {
-          const v = Number(e.target.value) / 100; // 0..1
+          const v = Number(e.target.value) / 100;
           municipiosLayer.setStyle({ opacity: v });
         });
-
         return div;
       }
     });
-    map.addControl(new OpacityControl());
+    map.addControl(new OpacityControlMunicipios());
+
+    // --- Control de Opacidad para BIC (50% por defecto) ---
+    const OpacityControlBIC = L.Control.extend({
+      options: { position: 'bottomright' },
+      onAdd: function() {
+        const div = L.DomUtil.create('div', 'opacity-control leaflet-control');
+        div.innerHTML = `
+          <label for="bic-opacity">Opacidad BIC</label>
+          <input id="bic-opacity" type="range" min="0" max="100" value="50" />
+        `;
+        const input = div.querySelector('#bic-opacity');
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.on(input, 'input', (e) => {
+          bicOpacity = Number(e.target.value) / 100; // 0..1
+          // Reaplicar estilos con la nueva opacidad
+          bicLayer.setStyle(styleBIC);
+        });
+        return div;
+      }
+    });
+    map.addControl(new OpacityControlBIC());
 
     // Escala
     L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
