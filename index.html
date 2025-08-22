@@ -34,27 +34,46 @@
   ></script>
 
   <script>
-    // Centro aproximado de Tenerife
+    // --- Centro/zoom iniciales ---
     const centerTenerife = [28.2916, -16.6291];
+    const initialZoom = 10;
 
-    // (Opcional) Limitar el paneo a un rectángulo en torno a la isla
-    // SW [lat, lon], NE [lat, lon]
-    const maxBoundsTenerife = L.latLngBounds(
-      [27.9, -17.2],   // suroeste
-      [28.7, -15.8]    // noreste
-    );
+    const maxBoundsTenerife = L.latLngBounds([27.9, -17.2], [28.7, -15.8]);
 
-    // Crear el mapa
     const map = L.map('map', {
       center: centerTenerife,
-      zoom: 10,            // buen nivel para ver toda la isla
+      zoom: initialZoom,
       minZoom: 7,
       zoomControl: true,
-      maxBounds: maxBoundsTenerife,   // quítalo si no quieres límites
+      maxBounds: maxBoundsTenerife,
       maxBoundsViscosity: 0.5
     });
 
-    // Capas base
+    // --- Botón HOME (volver a vista inicial) ---
+    const HomeControl = L.Control.extend({
+      options: { position: 'topleft' }, // debajo de los zoom por orden de inserción
+      onAdd: function() {
+        const container = L.DomUtil.create('div', 'leaflet-bar');
+        const link = L.DomUtil.create('a', '', container);
+        link.href = '#';
+        link.title = 'Volver a vista inicial';
+        link.setAttribute('aria-label','Volver a vista inicial');
+        link.style.fontSize = '18px';
+        link.style.lineHeight = '26px';
+        link.style.textAlign = 'center';
+        link.style.width = '26px';
+        link.style.height = '26px';
+        link.innerHTML = '🏠';
+
+        L.DomEvent.on(link, 'click', L.DomEvent.stop)
+                  .on(link, 'click', () => map.setView(centerTenerife, initialZoom));
+
+        return container;
+      }
+    });
+    map.addControl(new HomeControl());
+
+    // --- Bases ---
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -62,43 +81,28 @@
 
     const esriSat = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 20,
-        attribution: 'Imagery &copy; Esri, Earthstar Geographics'
-      }
+      { maxZoom: 20, attribution: 'Imagery &copy; Esri, Earthstar Geographics' }
     );
 
     const cartoLight = L.tileLayer(
       'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      {
-        maxZoom: 20,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>'
-      }
+      { maxZoom: 20, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>' }
     );
 
-    // Añadir una por defecto
-    osm.addTo(map);
+    osm.addTo(map); // base por defecto
 
     // =========================
     //  CAPA MUNICIPIOS (LÍMITE)
     // =========================
-    // Pane específico por debajo de otros overlays (tilePane ~200, overlayPane ~400).
-    // Lo situamos en 300 para que quede sobre el mapa base, pero por debajo de
-    // enclaves, marcadores, etc. Además, sin interacción.
     const municipiosPaneName = 'municipios-pane';
     map.createPane(municipiosPaneName);
-    map.getPane(municipiosPaneName).style.zIndex = 300;
+    map.getPane(municipiosPaneName).style.zIndex = 300; // por debajo de otros overlays
 
-    const municipiosStyle = {
-      color: '#00599C',     // RGB(0, 89, 156)
-      weight: 2,
-      fill: false
-    };
+    const municipiosStyle = { color: '#00599C', weight: 2, fill: false };
 
     const municipiosLayer = L.geoJSON(null, {
       pane: municipiosPaneName,
-      interactive: false,   // sin clicks, solo visual
+      interactive: false,  // sin clics
       style: municipiosStyle
     });
 
@@ -107,19 +111,12 @@
       .then(geo => municipiosLayer.addData(geo))
       .catch(err => console.warn('No se pudo cargar municipios:', err));
 
-    // Añadimos por defecto (para que siempre haga de “línea de fondo”)
-    municipiosLayer.addTo(map);
+    municipiosLayer.addTo(map); // ACTIVA desde el inicio
 
     // =========================
     // CAPA ENCLAVES (PUNTOS)
     // =========================
-    const enclavesStyle = {
-      radius: 6,
-      weight: 2,
-      color: '#143D6B',
-      fillColor: '#4DA3FF',
-      fillOpacity: 0.9
-    };
+    const enclavesStyle = { radius: 6, weight: 2, color: '#143D6B', fillColor: '#4DA3FF', fillOpacity: 0.9 };
 
     const enclavesLayer = L.geoJSON(null, {
       pointToLayer: (feature, latlng) => L.circleMarker(latlng, enclavesStyle),
@@ -134,7 +131,11 @@
       .then(geo => enclavesLayer.addData(geo))
       .catch(err => console.warn('No se pudo cargar enclaves:', err));
 
-    // Control de capas (añadimos overlays)
+    enclavesLayer.addTo(map); // ACTIVA desde el inicio (se rellenará al cargar)
+
+    // =========================
+    // CONTROLES DE CAPAS
+    // =========================
     const baseMaps = {
       'OSM': osm,
       'Satélite (Esri)': esriSat,
@@ -142,19 +143,17 @@
     };
     const overlays = {
       'Enclaves (puntos)': enclavesLayer,
-      // Ofrecemos poder ocultar/mostrar el límite si quieres
       'Municipios (límite)': municipiosLayer
     };
 
-    L.control.layers(
-      baseMaps,
-      overlays,
-      { position: 'topright', collapsed: false }
-    ).addTo(map);
+    // Control SOLO bases (arriba-derecha)
+    L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
 
-    // Control de escala
+    // Control SOLO overlays (abajo-derecha)
+    L.control.layers(null, overlays, { position: 'bottomright', collapsed: false }).addTo(map);
+
+    // Escala
     L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
-
   </script>
 </body>
 </html>
